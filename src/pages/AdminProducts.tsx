@@ -150,7 +150,7 @@ const AdminProducts = () => {
       });
 
       // Remove forbidden/generated column from payload
-      delete payload.price_with_vat;
+      delete payload.rate;
 
       if (editing) {
         const where = editing.product_code
@@ -277,7 +277,7 @@ const AdminProducts = () => {
                     <TableCell className="font-medium">{p.product_name ?? "-"}</TableCell>
                     <TableCell className="max-w-xs truncate">{p.product_size ?? "-"}</TableCell>
                     <TableCell>{p.thickness ?? "-"}</TableCell>
-                    <TableCell>{p.rate ?? "-"}</TableCell>
+                    <TableCell>{p.price_with_vat ?? "-"}</TableCell>
                     <TableCell>{p.category ?? "-"}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
