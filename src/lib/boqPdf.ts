@@ -357,31 +357,50 @@ export async function generateBOQPdfFromFormData(formData: BOQFormData) {
     doc.text(wordsWrappedBelow, colRight, yPosition + 1, { align: "right" });
     yPosition += wordsWrappedBelow.length * 3.5 + 5; // 5px gap before Client's Scope
 //-------------------------------------------------------------------
-    checkNewPage(60);
-    yPosition += 5;
+   checkNewPage(60);
+   yPosition += 5;
+
+    // background box
     doc.setFillColor(245, 245, 250);
-    doc.roundedRect(marginLeft, yPosition - 4, pageWidth - marginLeft - marginRight, 32, 2, 2, "F");
+    doc.roundedRect(
+      marginLeft,
+      yPosition - 4,
+      pageWidth - marginLeft - marginRight,
+      32,
+      2,
+      2,
+      "F"
+    );
+
+    // text alignment
+    const textLeft = marginLeft + 5; // keep padding consistent
+
     doc.setFontSize(9);
     doc.setTextColor(30, 45, 77);
     doc.setFont("helvetica", "bold");
-    doc.text("Client's Scope", 20, yPosition);
+    doc.text("Client's Scope", textLeft, yPosition);
+
     doc.setFont("helvetica", "normal");
     doc.setTextColor(80, 80, 80);
     doc.setFontSize(6.5);
+
     const clientScopeText = [
       "1. Warranty: 2 Yrs Maintenance with material and wage due to construction and material defect. It does not cover the warranty due to negligence of client and due to natural disasters.",
       "2. All materials will be delivered to the site; however, if they need to be transported to another location, additional handling charges will apply and must be borne by the client.",
       "3. The estimated cost is based on the specific scope of work. Any additional work beyond what has been provided will incur extra charges.",
     ];
-    let scopeY = yPosition + 5;
-    clientScopeText.forEach((line) => {
-      const wrappedLine = doc.splitTextToSize(line, pageWidth - 50);
-      doc.text(wrappedLine, 20, scopeY);
-      scopeY += wrappedLine.length * 3.5 + 2;
-    });
-    yPosition = scopeY + 20;
 
-    checkNewPage(40);
+let scopeY = yPosition + 5;
+clientScopeText.forEach((line) => {
+  const wrappedLine = doc.splitTextToSize(line, pageWidth - marginLeft - marginRight - 10); 
+  doc.text(wrappedLine, textLeft, scopeY);
+  scopeY += wrappedLine.length * 3.5 + 2;
+});
+
+yPosition = scopeY + 10;
+
+    const termsSectionHeight = 28;
+    checkNewPage(termsSectionHeight + 5);
     yPosition += 5;
     doc.setFillColor(250, 250, 250);
     doc.roundedRect(marginLeft, yPosition - 4, pageWidth - marginLeft - marginRight, 24, 2, 2, "F");
@@ -399,17 +418,17 @@ export async function generateBOQPdfFromFormData(formData: BOQFormData) {
     yPosition += 24;
 
     const preparedY = pageHeight - 28;
-    if (preparedY - yPosition < 20) {
-      doc.addPage();
-      pageNum++;
-      yPosition = 35;
-    }
-    doc.setFontSize(8);
-    doc.setTextColor(50, 50, 50);
-    doc.setFont("helvetica", "normal");
-    doc.text("Prepared by: ........................................", marginLeft, preparedY);
-
-    const createFadedLogoDataUrl = async (
+      if (preparedY - yPosition < 5) {
+        doc.addPage();
+        pageNum++;
+        yPosition = 35;
+      }
+  doc.setFontSize(8);
+  doc.setTextColor(50, 50, 50);
+  doc.setFont("helvetica", "normal");
+  doc.text("Prepared by: ........................................", marginLeft, preparedY);
+  
+  const createFadedLogoDataUrl = async (
   dataUrl: string,
   alpha = 0.03,
   scale = 1 // Increase if height looks small

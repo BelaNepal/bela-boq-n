@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Save } from "lucide-react";
+import { Download, Save, Loader2 } from "lucide-react";
 import { BOQFormData } from "./BOQForm";
 import { WorkItem } from "./forms/WorkItemForm";
 import { Card } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { generateBOQPdfFromFormData } from "@/lib/boqPdf";
 import { formatNepaliNumber } from "@/lib/formatters";
 import { DialogDescription } from "@radix-ui/react-dialog";
+import { useState } from "react";
 
 interface BOQSummaryModalProps {
   open: boolean;
@@ -18,6 +19,7 @@ interface BOQSummaryModalProps {
   existingProjectId?: string;
 }
 const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BOQSummaryModalProps) => {
+  const [busy, setBusy] = useState(false);
   const calculateSectionTotal = (items: WorkItem[]) => {
     return items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   };
@@ -75,6 +77,7 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
 
   const handleSave = async () => {
     try {
+      setBusy(true);
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -191,6 +194,7 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
           })()
         );
       }
+      
 
       // Note: 'civil_other_work' table does not exist in Supabase types; skip DB insert for now
 
@@ -425,11 +429,14 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
     } catch (error) {
       console.error("Error saving BOQ:", error);
       toast.error("Failed to save BOQ");
+    } finally {
+      setBusy(false);
     }
   };
 
   const handleDownloadPDF = async () => {
     try {
+      setBusy(true);
       toast.info("Generating PDF...");
       await generateBOQPdfFromFormData(formData);
       toast.success("PDF downloaded successfully!");
@@ -437,6 +444,8 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast.error(`Failed to generate PDF: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -647,16 +656,35 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
 
           {/* Buttons */}
           <div className="flex gap-3 justify-end pt-4 border-t">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => !busy && onOpenChange(false)} disabled={busy}>
+              {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Close
             </Button>
-            <Button onClick={handleSave} className="bg-[#1E2D4D] hover:bg-[#1E2D4D]/90 text-white">
-              <Save className="w-4 h-4 mr-2" />
-              Save BOQ
+            <Button onClick={handleSave} disabled={busy} className="bg-[#1E2D4D] hover:bg-[#1E2D4D]/90 text-white">
+              {busy ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save BOQ
+                </>
+              )}
             </Button>
-            <Button onClick={handleDownloadPDF} className="bg-[#EF7E1E] hover:bg-[#EF7E1E]/90 text-white">
-              <Download className="w-4 h-4 mr-2" />
-              Download PDF
+            <Button onClick={handleDownloadPDF} disabled={busy} className="bg-[#EF7E1E] hover:bg-[#EF7E1E]/90 text-white">
+              {busy ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download PDF
+                </>
+              )}
             </Button>
           </div>
         </div>

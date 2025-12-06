@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { ArrowLeft, Plus, Pencil, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Product {
   sn?: number | null;
@@ -43,6 +44,20 @@ const AdminProducts = () => {
   const [form, setForm] = useState<Product>({});
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
+
+  const CATEGORY_OPTIONS = [
+    { label: "Civil Metal Work", value: "civil-metal-work" },
+    { label: "Civil PCC Work", value: "civil-pcc-work" },
+    { label: "Panel Floor Work", value: "panel-floor-work" },
+    { label: "Panel Roof Work", value: "panel-roof-work" },
+    { label: "Panel Wall Work", value: "panel-wall-work" },
+    { label: "UPVC Doors & Windows", value: "upvc-doors-windows" },
+    { label: "Toilet, Bath & Plumbing", value: "toilet-bath-plumbing" },
+    { label: "Wall Putty Work", value: "wall-putty-work" },
+    { label: "Electric Work", value: "electric-work" },
+    { label: "Roofing Work", value: "roofing-work" },
+    { label: "Other", value: "other" },
+  ];
 
   useEffect(() => {
     checkAdminAccess();
@@ -340,7 +355,21 @@ const AdminProducts = () => {
               </div>
               <div className="space-y-2">
                 <Label>Category</Label>
-                <Input value={form.category ?? ""} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+                <Select
+                  value={form.category ?? ""}
+                  onValueChange={(v) => setForm({ ...form, category: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORY_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Total (m)</Label>

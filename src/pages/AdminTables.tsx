@@ -47,7 +47,7 @@ const AdminTables = () => {
       if (data && data.length > 0) {
         setColumns(Object.keys(data[0]));
       } else {
-        setColumns([]);
+        setColumns(DEFAULT_COLUMNS[selectedTable] || []);
       }
     } catch (error: unknown) {
       console.error("Error fetching table data:", error);
@@ -75,6 +75,44 @@ const AdminTables = () => {
     "predefined_items",
     "products",
   ];
+  const DEFAULT_COLUMNS: Record<string, string[]> = {
+    civil_other_work: [
+      "id",
+      "project_id",
+      "item_name",
+      "specification",
+      "unit",
+      "quantity",
+      "rate",
+      "amount",
+      "remarks",
+      "created_at",
+    ],
+    eco_panel_other_work: [
+      "id",
+      "project_id",
+      "item_name",
+      "specification",
+      "unit",
+      "quantity",
+      "rate",
+      "amount",
+      "remarks",
+      "created_at",
+    ],
+    custom_field_work: [
+      "id",
+      "project_id",
+      "item_name",
+      "specification",
+      "unit",
+      "quantity",
+      "rate",
+      "amount",
+      "remarks",
+      "created_at",
+    ],
+  };
 
   const checkAdminAccess = useCallback(async () => {
     try {
