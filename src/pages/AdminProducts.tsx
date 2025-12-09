@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Pencil, Trash2, Search } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Search, Download, Upload, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import * as XLSX from "xlsx";
 
 interface Product {
   sn?: number | null;
@@ -34,6 +35,7 @@ interface Product {
 
 const AdminProducts = () => {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
@@ -43,7 +45,26 @@ const AdminProducts = () => {
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<Product>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [isImporting, setIsImporting] = useState(false);
   const itemsPerPage = 20;
+
+  const EXPORT_COLUMNS: (keyof Product)[] = [
+    "product_code",
+    "bela_prod_code",
+    "product_name",
+    "product_size",
+    "thickness",
+    "price_with_vat",
+    "category",
+    "t_mtr",
+    "w_mtr",
+    "l_mtr",
+    "m3",
+    "w_ft",
+    "l_ft",
+    "sqft",
+    "weight",
+  ];
 
   const CATEGORY_OPTIONS = [
     { label: "Civil Metal Work", value: "civil-metal-work" },
@@ -58,6 +79,136 @@ const AdminProducts = () => {
     { label: "Roofing Work", value: "roofing-work" },
     { label: "Other", value: "other" },
   ];
+
+  const downloadTemplate = () => {
+    const templateData = [
+      {
+        product_code: "EX001",
+        bela_prod_code: "BP001",
+        product_name: "Example Product",
+        product_size: "1x2m",
+        thickness: 10,
+        price_with_vat: 5000,
+        category: "civil-metal-work",
+        t_mtr: 2,
+        w_mtr: 1,
+        l_mtr: 2,
+        m3: 2,
+        w_ft: 3.28,
+        l_ft: 6.56,
+        sqft: 21.5,
+        weight: 50,
+      },
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Products");
+    XLSX.writeFile(wb, "products_template.xlsx");
+    toast.success("Template downloaded successfully");
+  };
+
+  const exportProducts = () => {
+    if (products.length === 0) {
+      toast.error("No products to export");
+      return;
+    }
+
+    const exportData = products.map((p) => {
+      const row: any = {};
+      EXPORT_COLUMNS.forEach((col) => {
+        row[col] = p[col] ?? "";
+      });
+      return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Products");
+    XLSX.writeFile(wb, `products_export_${new Date().getTime()}.xlsx`);
+    toast.success(`Exported ${products.length} products`);
+  };
+
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const wb = XLSX.read(arrayBuffer, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json<any>(ws);
+
+      if (data.length === 0) {
+        toast.error("No data found in file");
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const row of data) {
+        try {
+          const payload: any = {
+            product_code: row.product_code || null,
+            bela_prod_code: row.bela_prod_code || null,
+            product_name: row.product_name || null,
+            product_size: row.product_size || null,
+            thickness: row.thickness ? Number(row.thickness) : null,
+            price_with_vat: row.price_with_vat ? Number(row.price_with_vat) : null,
+            category: row.category || null,
+            t_mtr: row.t_mtr ? Number(row.t_mtr) : null,
+            w_mtr: row.w_mtr ? Number(row.w_mtr) : null,
+            l_mtr: row.l_mtr ? Number(row.l_mtr) : null,
+            m3: row.m3 ? Number(row.m3) : null,
+            w_ft: row.w_ft ? Number(row.w_ft) : null,
+            l_ft: row.l_ft ? Number(row.l_ft) : null,
+            sqft: row.sqft ? Number(row.sqft) : null,
+            weight: row.weight ? Number(row.weight) : null,
+          };
+
+          // Remove null/undefined values for clean insert
+          Object.keys(payload).forEach((key) => {
+            if (payload[key] === null || payload[key] === undefined) {
+              delete payload[key];
+            }
+          });
+
+          const { error } = await (supabase as any)
+            .from("products")
+            .insert([payload]);
+
+          if (error) {
+            console.error("Row error:", error);
+            errorCount++;
+          } else {
+            successCount++;
+          }
+        } catch (e) {
+          console.error("Row parse error:", e);
+          errorCount++;
+        }
+      }
+
+      await fetchProducts();
+      toast.success(
+        `Import complete: ${successCount} added${errorCount > 0 ? `, ${errorCount} failed` : ""}`
+      );
+    } catch (e: any) {
+      console.error("Import error:", e);
+      toast.error("Failed to import file: " + e.message);
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
 
   useEffect(() => {
     checkAdminAccess();
@@ -233,16 +384,37 @@ const AdminProducts = () => {
       <div className="container mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate("/dashboard")}>
+            <Button variant="ghost" onClick={() => navigate("/admin")}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
             <h1 className="text-3xl font-bold">Manage Products</h1>
           </div>
-          <Button onClick={() => openDialog()}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Product
-          </Button>
+          <div className="flex gap-2 flex-wrap justify-end">
+            <Button variant="outline" onClick={downloadTemplate} title="Download template with example data">
+              <FileText className="w-4 h-4 mr-2" />
+              Template
+            </Button>
+            <Button variant="outline" onClick={exportProducts}>
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+            <Button variant="outline" onClick={triggerFileInput} disabled={isImporting}>
+              <Upload className="w-4 h-4 mr-2" />
+              {isImporting ? "Importing..." : "Import"}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleImportFile}
+              className="hidden"
+            />
+            <Button onClick={() => openDialog()}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Product
+            </Button>
+          </div>
         </div>
 
         <Card className="p-6 mb-6">
