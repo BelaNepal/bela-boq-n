@@ -187,6 +187,23 @@ const Admin = () => {
           </Button>
         </div>
 
+        <Card className="p-6 bg-blue-50 dark:bg-blue-950">
+          <div className="flex flex-wrap gap-3">
+            <Button variant="outline" onClick={() => navigate("/admin/items")}>
+              Items Management
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/admin/products")}>
+              Products Management
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/admin/tables")}>
+              Tables Management
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/users")}>
+              Users Management
+            </Button>
+          </div>
+        </Card>
+
         <Card className="p-6">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

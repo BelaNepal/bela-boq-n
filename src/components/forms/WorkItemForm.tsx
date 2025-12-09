@@ -65,6 +65,7 @@ const WorkItemForm = ({ data, onChange, title, category, projectId }: WorkItemFo
     "Bela Hollow Naked Panel",
     "Bela Hollow T Shape Panel",
     "Bela Hollow L Shape Panel",
+    "metal",
   ];
   useEffect(() => {
     const fetchPredefinedItems = async () => {
