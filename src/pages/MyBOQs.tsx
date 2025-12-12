@@ -37,7 +37,7 @@ const MyBOQs = () => {
   const checkAuthAndFetchBOQs = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         navigate("/auth?mode=login");
         return;
@@ -162,9 +162,16 @@ const MyBOQs = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => toast.info("View/Edit feature coming soon")}
+                        onClick={() => navigate(`/boq/view/${boq.id}`)}
                       >
                         View
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/boq/edit/${boq.id}`)}
+                      >
+                        Edit
                       </Button>
                       <Button
                         variant="destructive"

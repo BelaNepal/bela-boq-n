@@ -15,7 +15,7 @@ export interface QuotationData {
 }
 
 export async function generateQuotationPdfFromFormData(formData: BOQFormData, quoteData: QuotationData) {
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.height;
     const marginLeft = 15;
@@ -153,9 +153,9 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
         }
 
         // --- 3. CONSOLIDATED TABLE ---
-        // Headers: Item (SN) | Description | Rate | Amount
-        // Adjusted widths to fit 180mm content area (210 - 15 - 15)
-        const colWidths = [12, 108, 30, 30];
+        // Headers: Item (SN) | Description | Unit | Quantity | Rate | Amount
+        // Adjusted widths to fit 180mm content area
+        const colWidths = [10, 80, 15, 20, 25, 30];
         const tableStartX = marginLeft;
 
         // Draw Header
@@ -170,8 +170,12 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
         headerX += colWidths[0];
         doc.text("Description", headerX + 2, yPosition + 5.5);
         headerX += colWidths[1];
-        doc.text("Rate", headerX + 28, yPosition + 5.5, { align: "right" }); // Right align
+        doc.text("Unit", headerX + 2, yPosition + 5.5);
         headerX += colWidths[2];
+        doc.text("Quantity", headerX + 18, yPosition + 5.5, { align: "right" });
+        headerX += colWidths[3];
+        doc.text("Rate", headerX + 23, yPosition + 5.5, { align: "right" });
+        headerX += colWidths[4];
         doc.text("Amount", headerX + 28, yPosition + 5.5, { align: "right" });
 
         yPosition += 8;
@@ -208,14 +212,19 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
                 doc.setFontSize(9);
                 doc.text(cols[1], tableStartX + 2, yPosition + 4.5); // Adjusted Y for header
             } else if (isSubtotal) {
+                // Background only for Subtotal and Amount (Right aligned)
+                const bgWidth = 60;
                 doc.setFillColor(245, 245, 245);
-                doc.rect(tableStartX, yPosition, pageWidth - marginLeft - marginRight, rowHeight, "F");
+                doc.rect(pageWidth - marginRight - bgWidth, yPosition, bgWidth, rowHeight, "F");
+
                 doc.setTextColor(0, 0, 0);
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(9);
                 // Subtotal Label right aligned near amount
-                const amountX = tableStartX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] - 2;
-                doc.text(cols[3], amountX, yPosition + 5.5, { align: "right" });
+                const amountX = tableStartX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] - 2;
+                // Align using columns: Unit(2), Qty(3), Rate(4), Amount(5)
+                // We want it near Rate/Amount
+                doc.text(cols[5], amountX, yPosition + 5.5, { align: "right" });
                 doc.text("Subtotal:", amountX - 40, yPosition + 5.5, { align: "right" });
             } else {
                 // Normal Item
@@ -287,35 +296,25 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
                 doc.setFontSize(9);
                 doc.setTextColor(0, 0, 0);
 
-                // Col 2: Rate
-                const rateX = tableStartX + colWidths[0] + colWidths[1] + colWidths[2] - 2;
-                doc.text(cols[2], rateX, yPosition + 4.5, { align: "right" });
+                // Col 2: Unit
+                const unitX = tableStartX + colWidths[0] + colWidths[1] + 2;
+                doc.text(cols[2], unitX, yPosition + 4.5);
 
-                // Col 3: Amount
-                const amtX = tableStartX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] - 2;
-                doc.text(cols[3], amtX, yPosition + 4.5, { align: "right" });
+                // Col 3: Quantity
+                const qtyX = tableStartX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] - 2;
+                doc.text(cols[3], qtyX, yPosition + 4.5, { align: "right" });
+
+                // Col 4: Rate
+                const rateX = tableStartX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] - 2;
+                doc.text(cols[4], rateX, yPosition + 4.5, { align: "right" });
+
+                // Col 5: Amount
+                const amtX = tableStartX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5] - 2;
+                doc.text(cols[5], amtX, yPosition + 4.5, { align: "right" });
+
 
                 // Total Extra Height needed for row
                 const totalTextHeight = nameHeight + (specs ? 4 + extraSpecHeight : 0);
-                // Base rowHeight handles 1 line of text roughly.
-                // We need to expand if text > 1 line total.
-                // Actually base rowHeight is 6.
-                // If name is 1 line, nameHeight=0.
-                // If specs is 1 line, extraSpecHeight ~ 5.5.
-
-                // Let's ensure we reserve enough space.
-                // The 'extraHeight' variable in original code was: (lines - 1) * 4.
-                // Here we calculate total vertical span.
-
-                // Effective height consumed by text block from yPosition:
-                // Name starts at y+4.5. 
-                // Specs starts below name.
-                // Bottom of text block is currentY + (last line height).
-
-                // Let's simplify:
-                // yPosition is TOP of row.
-                // We draw text. 
-                // We need to draw bottom line below the lowest text.
 
                 // Lowest Y
                 const textBottomY = specs
@@ -325,11 +324,6 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
                 // Better calculation based on lines:
                 const nameLines = splitName.length;
                 const specLines = specs ? doc.splitTextToSize(`(${specs})`, descWidth).length : 0;
-
-                // Base height covers 1 line of name (approx 6mm).
-                // Extra height needed:
-                // For name: (nameLines - 1) * 4
-                // For specs: specLines * 4 (plus spacing)
 
                 let addedHeight = (nameLines - 1) * 4;
                 if (specLines > 0) {
@@ -353,7 +347,7 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
             if (section.items.length === 0) continue;
 
             // Draw Section Header
-            drawRow(["", section.title, "", ""], true, true);
+            drawRow(["", section.title, "", "", "", ""], true, true);
 
             let sectionTotal = 0;
 
@@ -364,19 +358,14 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
 
                 sectionTotal += amount;
 
-                // Description: Item Name + Specification + (Unit?)
-                // User said: "In quotation inside Item there maybe Description with subitem specs and price"
-                // I will combine formatting: **Name** \n Specs (Unit: X)
-                // Description: Item Name + Specification + (Unit?)
-                // User said: "In quotation inside Item there maybe Description with subitem specs and price"
-                // Combined formatting: Name ||| Specification
                 let desc = item.itemName || "";
                 if (item.specification) desc += `|||${item.specification}`;
-                // if (item.unit) desc += ` (Unit: ${item.unit})`; // Optional, user didn't strictly ask but good context
 
                 drawRow([
                     String(serialNo++),
                     desc,
+                    item.unit || "-",
+                    formatNepaliNumber(qty),
                     formatNepaliNumber(rate),
                     formatNepaliNumber(amount)
                 ]);
@@ -384,7 +373,7 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
 
             // Draw Subtotal
             grandTotal += sectionTotal; // Accumulate for Grand Total (though we calc it separately strictly speaking)
-            drawRow(["", "", "", formatNepaliNumber(sectionTotal)], true, false, true);
+            drawRow(["", "", "", "", "", formatNepaliNumber(sectionTotal)], true, false, true);
             yPosition += 2; // Spacer
         }
 
@@ -486,7 +475,12 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
 
         // --- 6. SCOPE & TERMS (2 Columns, Small Font) ---
         // We put them side-by-side to save space
-        checkNewPage(40);
+        // --- 6. SCOPE & TERMS (2 Columns, Small Font) ---
+        // We put them side-by-side to save space
+
+        // Calculate needed space: Scope/Terms (35) + Gap (5) + Signature (30) = 70
+        // We want them to stay together.
+        checkNewPage(70);
 
         const twoColYStart = yPosition;
         const colGap = 5;
@@ -545,17 +539,8 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
             termY += 4;
         });
 
-        yPosition = twoColYStart + 35; // Reduced height approx
-
-        // Signatures (Push closer)
-        // Check if enough space remains on page, else add page
-        const neededSigHeight = 30;
-        if (yPosition + neededSigHeight > pageHeight - 15) {
-            doc.addPage();
-            yPosition = 35;
-        } else {
-            yPosition += 5; // Small gap after Scope/Terms
-        }
+        // Stick Signature immediately after
+        yPosition = twoColYStart + 35 + 5; // Height of box (35) + Gap (5)
 
         const sigY = yPosition;
 
@@ -567,6 +552,25 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
         // Signature Line
         doc.line(pageWidth - 80, sigY + 8, pageWidth - marginRight, sigY + 8);
         doc.text("Authorized Signature", pageWidth - 40, sigY + 13, { align: "center" });
+
+        // --- ADD FOOTER (Page X of Y) ---
+        const totalPages = doc.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            const pageText = `Page ${i} of ${totalPages}`;
+            doc.text(pageText, pageWidth - marginRight, pageHeight - 10, { align: "right" });
+
+            // Re-add footer line/info if missing (Quotation PDF didn't seem to have a dedicated addFooter function in previous read, 
+            // but if it did, we should call it or add standard footer here. 
+            // The previous code didn't show a loop for footer, so I'll add the standard one here to be safe/consistent).
+            doc.setDrawColor(239, 126, 30);
+            doc.setLineWidth(0.5);
+            doc.line(marginLeft, pageHeight - 15, pageWidth - marginRight, pageHeight - 15);
+            doc.text("Visit us at www.belanepal.com.np", marginLeft, pageHeight - 10);
+            doc.text("Email us: info@belanepal.com.np", pageWidth / 2, pageHeight - 10, { align: "center" });
+        }
 
         // Save
         doc.save(`Quotation_${quoteData.quotationNumber || "Draft"}.pdf`);

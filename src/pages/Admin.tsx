@@ -213,6 +213,9 @@ const Admin = () => {
             <Button variant="outline" onClick={() => navigate("/admin/customer-info")}>
               Customer Info Requests
             </Button>
+            <Button variant="outline" onClick={() => navigate("/admin/quotations")}>
+              View All Quotations
+            </Button>
           </div>
         </Card>
 

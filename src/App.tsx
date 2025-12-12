@@ -24,6 +24,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import CustomerInfo from "./pages/CustomerInfo";
 import AdminCustomerInfo from "./pages/AdminCustomerInfo";
+import AdminQuotations from "./pages/AdminQuotations";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,7 @@ const App = () => {
             <Route path="/my-boqs" element={<MyBOQs />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin/tables" element={<AdminTables />} />
+            <Route path="/admin/quotations" element={<AdminQuotations />} />
             <Route path="/admin/customer-info" element={<AdminCustomerInfo />} />
             <Route path="/customer-info" element={<CustomerInfo />} />
             <Route path="*" element={<NotFound />} />

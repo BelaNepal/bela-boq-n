@@ -31,6 +31,7 @@ interface BOQProject {
   overhead_percent?: number | null;
   vat_percent?: number | null;
   transportation_cost?: number | null;
+  custom_title?: string | null;
 }
 
 const QuotationView = () => {
@@ -44,6 +45,9 @@ const QuotationView = () => {
   const [quotationDate, setQuotationDate] = useState(new Date().toISOString().split("T")[0]);
   const [validityDays, setValidityDays] = useState("30");
   const [busy, setBusy] = useState(false);
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const [formData, setFormData] = useState<import("@/components/BOQForm").BOQFormData | null>(null);
 
   useEffect(() => {
     loadQuotation();
@@ -52,25 +56,28 @@ const QuotationView = () => {
   const loadQuotation = async () => {
     try {
       setLoading(true);
-      const { data: projectData, error: projectError } = await supabase
+      const { data: projectDataRaw, error: projectError } = await supabase
         .from("boq_projects")
         .select("*")
         .eq("id", id)
         .single();
 
-      if (projectError || !projectData) {
+      if (projectError || !projectDataRaw) {
         toast.error("Project not found");
         navigate("/");
         return;
       }
 
+      const projectData = projectDataRaw as unknown as BOQProject;
       setProject(projectData);
 
-      const { data: quotationData } = await supabase
-        .from("quotations")
+      const { data: quotationDataRaw } = await supabase
+        .from("quotations" as any)
         .select("*")
         .eq("project_id", id)
         .single();
+
+      const quotationData = quotationDataRaw as unknown as Quotation | null;
 
       if (quotationData) {
         setQuotation(quotationData);
@@ -78,12 +85,146 @@ const QuotationView = () => {
         setQuotationDate(quotationData.quotation_date);
         setValidityDays(String(quotationData.validity_days));
       }
+
+      // Fetch all work items for this project to prepare PDF data
+      const fetchWorkItems = (table: string) =>
+        supabase.from(table as any).select("*").eq("project_id", id);
+
+      if (!quotationData) {
+        // Auto-generate next quotation number: BQT-YYYYXX
+        // Auto-increment logic
+        const year = new Date().getFullYear();
+        const prefix = `BQT-${year}`;
+
+        const { data: latestQuoteDataRaw, error: quoteError } = await supabase
+          .from("quotations")
+          .select("quotation_number")
+          .ilike("quotation_number", `${prefix}%`)
+          .order("quotation_number", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (quoteError) {
+          console.error("Error fetching latest quotation:", quoteError);
+        }
+
+        const latestQuoteData = latestQuoteDataRaw as unknown as { quotation_number: string } | null;
+
+        let nextNum = "01";
+        if (latestQuoteData && latestQuoteData.quotation_number) {
+          const currentNum = parseInt(latestQuoteData.quotation_number.slice(-2));
+          if (!isNaN(currentNum)) {
+            nextNum = String(currentNum + 1).padStart(2, "0");
+          }
+        }
+
+
+        setQuotationNumber(`${prefix}${nextNum}`);
+      }
+
+      const [
+        civilMetal,
+        civilPCC,
+        civilOther,
+        panelFloor,
+        panelRoof,
+        panelWall,
+        upvc,
+        toilet,
+        putty,
+        electric,
+        roofing,
+        ecoOther,
+        customField,
+      ] = await Promise.all([
+        fetchWorkItems("civil_metal_work"),
+        fetchWorkItems("civil_pcc_work"),
+        fetchWorkItems("civil_other_work"),
+        fetchWorkItems("panel_floor_work"),
+        fetchWorkItems("panel_roof_work"),
+        fetchWorkItems("panel_wall_work"),
+        fetchWorkItems("upvc_doors_windows"),
+        fetchWorkItems("toilet_bath_plumbing"),
+        fetchWorkItems("wall_putty_work"),
+        fetchWorkItems("electric_work"),
+        fetchWorkItems("roofing_work"),
+        fetchWorkItems("eco_panel_other_work"),
+        fetchWorkItems("custom_field_work"),
+      ]);
+
+      const toFormItems = (response: { data: any[] | null } | null) => {
+        return Array.isArray(response?.data) ? response!.data.map((i) => ({
+          itemName: i.item_name,
+          specification: i.specification || "",
+          unit: i.unit,
+          quantity: Number(i.quantity) || 0,
+          rate: Number(i.rate) || 0,
+          amount: Number(i.amount) || 0,
+          remarks: i.remarks || "",
+        })) : [];
+      };
+
+      const preparedFormData: import("@/components/BOQForm").BOQFormData = {
+        projectInfo: {
+          projectName: projectData.project_name,
+          clientName: projectData.client_name,
+          siteLocation: projectData.site_location,
+          builtUpArea: projectData.built_up_area,
+          startDate: projectData.start_date,
+          completionDate: projectData.completion_date,
+        },
+        additionalCosts: {
+          discount_percent: projectData.discount_percent || 0,
+          overhead_percent: projectData.overhead_percent || 0,
+          vat_percent: projectData.vat_percent || 0,
+          transportation_cost: projectData.transportation_cost || 0,
+          custom_title: projectData.custom_title || "",
+        },
+        civilMetalWork: toFormItems(civilMetal),
+        civilPCCWork: toFormItems(civilPCC),
+        civilOtherWork: toFormItems(civilOther),
+        panelFloorWork: toFormItems(panelFloor),
+        panelRoofWork: toFormItems(panelRoof),
+        panelWallWork: toFormItems(panelWall),
+        upvcDoorsWindows: toFormItems(upvc),
+        toiletBathPlumbing: toFormItems(toilet),
+        wallPuttyWork: toFormItems(putty),
+        electricWork: toFormItems(electric),
+        roofingWork: toFormItems(roofing),
+        ecoPanelOtherWork: toFormItems(ecoOther),
+        customFieldWork: toFormItems(customField),
+      };
+      setFormData(preparedFormData);
+
     } catch (error) {
       console.error("Error loading quotation:", error);
       toast.error("Failed to load quotation");
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateGrandTotal = () => {
+    if (!formData) return 0;
+    const sum = (arr?: any[]) => (arr || []).reduce((s, i) => s + (Number(i?.amount) || 0), 0);
+    const subtotal = sum(formData.civilMetalWork) + sum(formData.civilPCCWork) + sum(formData.civilOtherWork) +
+      sum(formData.panelFloorWork) + sum(formData.panelRoofWork) + sum(formData.panelWallWork) +
+      sum(formData.upvcDoorsWindows) + sum(formData.toiletBathPlumbing) + sum(formData.wallPuttyWork) +
+      sum(formData.electricWork) + sum(formData.roofingWork) + sum(formData.ecoPanelOtherWork) +
+      sum(formData.customFieldWork);
+
+    const ac = formData.additionalCosts as any;
+    const discountPercent = ac?.discount_percent || 0;
+    const overheadPercent = ac?.overhead_percent || 0;
+    const vatPercent = ac?.vat_percent || 0;
+    const transportationCost = ac?.transportation_cost || 0;
+
+    const discountAmount = (subtotal * discountPercent) / 100;
+    const afterDiscount = subtotal - discountAmount;
+    const overheadAmount = (afterDiscount * overheadPercent) / 100;
+    const beforeVAT = afterDiscount + overheadAmount + (transportationCost || 0);
+    const vatAmount = (beforeVAT * vatPercent) / 100;
+    return beforeVAT + vatAmount;
   };
 
   const handleSaveQuotation = async () => {
@@ -94,26 +235,30 @@ const QuotationView = () => {
 
     try {
       setBusy(true);
-      const grandTotal = 1000000; // This should be calculated from BOQ items
+      const grandTotal = calculateGrandTotal();
 
       if (quotation) {
         // Update existing
-        const { error } = await supabase
-          .from("quotations")
+        const { data: updatedQuoteRaw, error } = await supabase
+          .from("quotations" as any)
           .update({
             quotation_number: quotationNumber,
             quotation_date: quotationDate,
             validity_days: parseInt(validityDays),
             grand_total: grandTotal,
           })
-          .eq("id", quotation.id);
+          .eq("id", quotation.id)
+          .select();
 
         if (error) throw error;
+        // Cast the array result to get the single item
+        const updatedQuote = (updatedQuoteRaw as any[])?.[0] as Quotation;
         toast.success("Quotation updated successfully!");
+        setQuotation(updatedQuote);
       } else {
         // Create new
-        const { data, error } = await supabase
-          .from("quotations")
+        const { data: newQuoteRaw, error } = await supabase
+          .from("quotations" as any)
           .insert({
             project_id: id,
             quotation_number: quotationNumber,
@@ -125,7 +270,8 @@ const QuotationView = () => {
           .single();
 
         if (error) throw error;
-        setQuotation(data);
+        const newQuote = newQuoteRaw as unknown as Quotation;
+        setQuotation(newQuote);
         toast.success("Quotation created successfully!");
       }
 
@@ -139,10 +285,28 @@ const QuotationView = () => {
   };
 
   const handleDownloadQuotationPDF = async () => {
+    if (!formData || !project) {
+      toast.error("Data not loaded yet");
+      return;
+    }
     try {
       setBusy(true);
-      // Generate quotation PDF - implement similar to BOQ PDF
-      toast.info("Quotation PDF download feature coming soon");
+      // Use the dedicated quotation generator
+      const { generateQuotationPdfFromFormData } = await import("@/lib/quotationPdf");
+
+      const quoteData = {
+        quotationNumber: quotationNumber || "DRAFT",
+        quotationDate: quotationDate,
+        validityDays: Number(validityDays),
+        recipientName: project.client_name || "Valued Client",
+        recipientAddress: project.site_location || "Nepal",
+        fobTerms: "WareHouse",
+        deliveryNumber: "-",
+        inquiryDate: "",
+      };
+
+      await generateQuotationPdfFromFormData(formData, quoteData);
+      toast.success("Quotation PDF downloaded successfully!");
     } catch (error) {
       console.error("Error downloading quotation:", error);
       toast.error("Failed to download quotation");
@@ -157,24 +321,22 @@ const QuotationView = () => {
 
   const validityEndDate = new Date(quotationDate);
   validityEndDate.setDate(validityEndDate.getDate() + parseInt(validityDays));
+  const currentGrandTotal = calculateGrandTotal() || quotation?.grand_total || 0;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate(`/boq/${id}`)}
-            className="text-[#1E2D4D] hover:text-[#EF7E1E]"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to BOQ
-          </Button>
-          <h1 className="text-3xl font-bold text-[#1E2D4D]">Quotation</h1>
-          <div className="w-20" />
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+              {editMode ? "Edit Quotation" : "Quotation Details"}
+            </h1>
+          </div>
         </div>
-
         {/* Main Card */}
         <Card className="p-8 mb-6 bg-white shadow-lg">
           {/* Quotation Header */}
@@ -248,7 +410,7 @@ const QuotationView = () => {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-sm font-semibold opacity-75 mb-1">Grand Total</p>
-                <p className="text-4xl font-bold">NRS {quotation ? formatNepaliNumber(quotation.grand_total) : "0"}</p>
+                <p className="text-4xl font-bold">NRS {formatNepaliNumber(currentGrandTotal)}</p>
               </div>
               <div className="text-right">
                 <p className="text-sm opacity-75">Including VAT & Additional Costs</p>

@@ -312,36 +312,43 @@ const BOQView = () => {
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-secondary text-secondary-foreground">
+                <th className="px-2 py-1.5 text-left w-[40px]">S.N</th>
                 <th className="px-2 py-1.5 text-left">Item</th>
                 <th className="px-2 py-1.5 text-left">Specification</th>
-                <th className="px-2 py-1.5 text-left">Unit</th>
-                <th className="px-2 py-1.5 text-right">Qty</th>
-                <th className="px-2 py-1.5 text-right">Rate</th>
-                <th className="px-2 py-1.5 text-right">Amount</th>
+                <th className="px-2 py-1.5 text-left w-[60px]">Unit</th>
+                <th className="px-2 py-1.5 text-right w-[60px]">Qty</th>
+                <th className="px-2 py-1.5 text-right w-[80px]">Rate</th>
+                <th className="px-2 py-1.5 text-center w-[100px]">Amount</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr className="border-b">
-                  <td className="px-2 py-1.5" colSpan={6}>No items</td>
+                  <td className="px-2 py-1.5 text-center" colSpan={7}>No items</td>
                 </tr>
               ) : (
                 items.map((item, idx) => (
-                  <tr key={idx} className="border-b">
+                  <tr key={idx} className="border-b hover:bg-muted/50 transition-colors">
+                    <td className="px-2 py-1.5 text-muted-foreground">{idx + 1}</td>
                     <td className="px-2 py-1.5">{item.item_name}</td>
-                    <td className="px-2 py-1.5 text-muted-foreground">{item.specification || "-"}</td>
+                    <td className="px-2 py-1.5 text-muted-foreground max-w-[200px] truncate" title={item.specification || ""}>{item.specification || "-"}</td>
                     <td className="px-2 py-1.5">{item.unit}</td>
                     <td className="px-2 py-1.5 text-right">{item.quantity}</td>
                     <td className="px-2 py-1.5 text-right">{formatNepaliCurrency(item.rate)}</td>
-                    <td className="px-2 py-1.5 text-right font-semibold">{formatNepaliCurrency(item.amount)}</td>
+                    <td className="px-2 py-1.5 text-center font-medium">{formatNepaliCurrency(item.amount)}</td>
                   </tr>
                 ))
               )}
             </tbody>
+            {items.length > 0 && (
+              <tfoot>
+                <tr className="bg-muted font-bold text-secondary">
+                  <td colSpan={6} className="px-2 py-1.5 text-right border-t">Subtotal:</td>
+                  <td className="px-2 py-1.5 text-center border-t">{formatNepaliCurrency(calculateTotal(items))}</td>
+                </tr>
+              </tfoot>
+            )}
           </table>
-        </div>
-        <div className="flex justify-end bg-muted px-3 py-1.5 rounded text-xs">
-          <span className="font-bold">Subtotal: {formatNepaliCurrency(calculateTotal(items))}</span>
         </div>
       </div>
     );
@@ -352,7 +359,7 @@ const BOQView = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
@@ -375,7 +382,7 @@ const BOQView = () => {
               </>
             )}
           </Button>
-          <Button 
+          <Button
             onClick={() => navigate(`/quotation/${id}`)}
             className="gap-2 bg-[#EF7E1E] hover:bg-[#EF7E1E]/90 text-white"
           >
