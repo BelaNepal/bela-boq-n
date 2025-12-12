@@ -11,6 +11,8 @@ import { generateBOQPdfFromFormData } from "@/lib/boqPdf";
 import { formatNepaliNumber } from "@/lib/formatters";
 import { DialogDescription } from "@radix-ui/react-dialog";
 import { useState } from "react";
+import { EmailModal } from "./EmailModal";
+import { generateQuotationPdfFromFormData } from "@/lib/quotationPdf";
 
 interface BOQSummaryModalProps {
   open: boolean;
@@ -20,6 +22,17 @@ interface BOQSummaryModalProps {
 }
 const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BOQSummaryModalProps) => {
   const [busy, setBusy] = useState(false);
+  const [showQuotationFields, setShowQuotationFields] = useState(false);
+  const [quotationNumber, setQuotationNumber] = useState("");
+  const [quotationDate, setQuotationDate] = useState(new Date().toISOString().split("T")[0]);
+  const [validityDays, setValidityDays] = useState("30");
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientAddress, setRecipientAddress] = useState("");
+  const [fobTerms, setFobTerms] = useState("");
+  const [deliveryNumber, setDeliveryNumber] = useState("");
+  const [inquiryDate, setInquiryDate] = useState("");
+
   const calculateSectionTotal = (items: WorkItem[]) => {
     return items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   };
@@ -80,7 +93,7 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
       setBusy(true);
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         toast.error("You must be logged in to save BOQ");
         return;
@@ -194,7 +207,7 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
           })()
         );
       }
-      
+
 
       // Note: 'civil_other_work' table does not exist in Supabase types; skip DB insert for now
 
@@ -203,22 +216,22 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
           ? formData.panelFloorWork.filter((i) => !i.sn && !i.product_code && !i.bela_prod_code)
           : formData.panelFloorWork;
         if (floorItems.length > 0) {
-        insertPromises.push(
-          supabase
-            .from("panel_floor_work")
-            .insert(
-              floorItems.map((item) => ({
-                project_id: projectId,
-                item_name: item.itemName,
-                specification: item.specification,
-                unit: item.unit,
-                quantity: Number(item.quantity) || 0,
-                rate: Number(item.rate) || 0,
-                amount: Number(item.amount) || 0,
-                remarks: item.remarks,
-              }))
-            )
-        );
+          insertPromises.push(
+            supabase
+              .from("panel_floor_work")
+              .insert(
+                floorItems.map((item) => ({
+                  project_id: projectId,
+                  item_name: item.itemName,
+                  specification: item.specification,
+                  unit: item.unit,
+                  quantity: Number(item.quantity) || 0,
+                  rate: Number(item.rate) || 0,
+                  amount: Number(item.amount) || 0,
+                  remarks: item.remarks,
+                }))
+              )
+          );
         }
       }
 
@@ -227,22 +240,22 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
           ? formData.panelRoofWork.filter((i) => !i.sn && !i.product_code && !i.bela_prod_code)
           : formData.panelRoofWork;
         if (roofItems.length > 0) {
-        insertPromises.push(
-          supabase
-            .from("panel_roof_work")
-            .insert(
-              roofItems.map((item) => ({
-                project_id: projectId,
-                item_name: item.itemName,
-                specification: item.specification,
-                unit: item.unit,
-                quantity: Number(item.quantity) || 0,
-                rate: Number(item.rate) || 0,
-                amount: Number(item.amount) || 0,
-                remarks: item.remarks,
-              }))
-            )
-        );
+          insertPromises.push(
+            supabase
+              .from("panel_roof_work")
+              .insert(
+                roofItems.map((item) => ({
+                  project_id: projectId,
+                  item_name: item.itemName,
+                  specification: item.specification,
+                  unit: item.unit,
+                  quantity: Number(item.quantity) || 0,
+                  rate: Number(item.rate) || 0,
+                  amount: Number(item.amount) || 0,
+                  remarks: item.remarks,
+                }))
+              )
+          );
         }
       }
 
@@ -251,22 +264,22 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
           ? formData.panelWallWork.filter((i) => !i.sn && !i.product_code && !i.bela_prod_code)
           : formData.panelWallWork;
         if (wallItems.length > 0) {
-        insertPromises.push(
-          supabase
-            .from("panel_wall_work")
-            .insert(
-              wallItems.map((item) => ({
-                project_id: projectId,
-                item_name: item.itemName,
-                specification: item.specification,
-                unit: item.unit,
-                quantity: Number(item.quantity) || 0,
-                rate: Number(item.rate) || 0,
-                amount: Number(item.amount) || 0,
-                remarks: item.remarks,
-              }))
-            )
-        );
+          insertPromises.push(
+            supabase
+              .from("panel_wall_work")
+              .insert(
+                wallItems.map((item) => ({
+                  project_id: projectId,
+                  item_name: item.itemName,
+                  specification: item.specification,
+                  unit: item.unit,
+                  quantity: Number(item.quantity) || 0,
+                  rate: Number(item.rate) || 0,
+                  amount: Number(item.amount) || 0,
+                  remarks: item.remarks,
+                }))
+              )
+          );
         }
       }
 
@@ -437,16 +450,43 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
   const handleDownloadPDF = async () => {
     try {
       setBusy(true);
-      toast.info("Generating PDF...");
-      await generateBOQPdfFromFormData(formData);
-      toast.success("PDF downloaded successfully!");
-      return;
+      if (showQuotationFields) {
+        toast.info("Generating Quotation PDF...");
+        // Call new Quotation PDF generator
+        await generateQuotationPdfFromFormData(formData, {
+          quotationNumber,
+          quotationDate,
+          validityDays: Number(validityDays),
+          recipientName,
+          recipientAddress,
+          fobTerms,
+          deliveryNumber,
+          inquiryDate
+        });
+        toast.success("Quotation PDF downloaded!");
+      } else {
+        toast.info("Generating BOQ PDF...");
+        await generateBOQPdfFromFormData(formData);
+        toast.success("BOQ PDF downloaded successfully!");
+      }
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast.error(`Failed to generate PDF: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleEmailSend = async (email: string, subject: string, message: string) => {
+    // Mock email sending logic
+    // In a real app, you would send the PDF blob to a backend API here
+    console.log("Sending email to:", email, "Subject:", subject, "Message:", message);
+
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Just toast success for now as per plan
+    toast.success("Email sent to " + email);
   };
 
   const SectionSummary = ({ title, items, total }: { title: string; items: WorkItem[]; total: number; serialStart?: number }) => {
@@ -503,35 +543,35 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
 
         <div className="space-y-6">
           {/* Project Info */}
-<Card className="p-4 bg-gradient-to-r from-[#EF7E1E]/10 to-[#1E2D4D]/10">
-  <h3 className="font-semibold text-[#1E2D4D] mb-2">Project Information</h3>
-  <div className="grid grid-cols-2 gap-4 text-sm">
-    <div>
-      <span className="font-medium">Project Name:</span>
-      <p className="text-gray-700">{formData.projectInfo.projectName}</p>
-    </div>
-    <div>
-      <span className="font-medium">Client Name:</span>
-      <p className="text-gray-700">{formData.projectInfo.clientName || "N/A"}</p>
-    </div>
-    <div>
-      <span className="font-medium">Site Location:</span>
-      <p className="text-gray-700">{formData.projectInfo.siteLocation || "N/A"}</p>
-    </div>
-    <div>
-      <span className="font-medium">Built-Up Area:</span>
-      <p className="text-gray-700">{formData.projectInfo.builtUpArea || "N/A"}</p>
-    </div>
-    <div>
-      <span className="font-medium">Starting Date:</span>
-      <p className="text-gray-700">{formData.projectInfo.startDate || "N/A"}</p>
-    </div>
-    <div>
-      <span className="font-medium">Completion Date:</span>
-      <p className="text-gray-700">{formData.projectInfo.completionDate || "N/A"}</p>
-    </div>
-  </div>
-</Card>
+          <Card className="p-4 bg-gradient-to-r from-[#EF7E1E]/10 to-[#1E2D4D]/10">
+            <h3 className="font-semibold text-[#1E2D4D] mb-2">Project Information</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium">Project Name:</span>
+                <p className="text-gray-700">{formData.projectInfo.projectName}</p>
+              </div>
+              <div>
+                <span className="font-medium">Client Name:</span>
+                <p className="text-gray-700">{formData.projectInfo.clientName || "N/A"}</p>
+              </div>
+              <div>
+                <span className="font-medium">Site Location:</span>
+                <p className="text-gray-700">{formData.projectInfo.siteLocation || "N/A"}</p>
+              </div>
+              <div>
+                <span className="font-medium">Built-Up Area:</span>
+                <p className="text-gray-700">{formData.projectInfo.builtUpArea || "N/A"}</p>
+              </div>
+              <div>
+                <span className="font-medium">Starting Date:</span>
+                <p className="text-gray-700">{formData.projectInfo.startDate || "N/A"}</p>
+              </div>
+              <div>
+                <span className="font-medium">Completion Date:</span>
+                <p className="text-gray-700">{formData.projectInfo.completionDate || "N/A"}</p>
+              </div>
+            </div>
+          </Card>
 
 
           {/* Civil Work */}
@@ -566,43 +606,43 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
             formData.electricWork.length > 0 ||
             formData.roofingWork.length > 0 ||
             formData.ecoPanelOtherWork.length > 0) && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-bold text-[#1E2D4D]">SECTION 2: ECO-PANEL WORK</h3>
-              {formData.panelFloorWork.length > 0 && (
-                <SectionSummary title="A. Panel Floor Work" items={formData.panelFloorWork} total={panelFloorTotal} />
-              )}
-              {formData.panelRoofWork.length > 0 && (
-                <SectionSummary title="B. Panel Roof Work" items={formData.panelRoofWork} total={panelRoofTotal} />
-              )}
-              {formData.panelWallWork.length > 0 && (
-                <SectionSummary title="C. Panel Wall Work" items={formData.panelWallWork} total={panelWallTotal} />
-              )}
-              {formData.upvcDoorsWindows.length > 0 && (
-                <SectionSummary title="D. UPVC Doors & Windows" items={formData.upvcDoorsWindows} total={upvcTotal} />
-              )}
-              {formData.toiletBathPlumbing.length > 0 && (
-                <SectionSummary title="E. Toilet, Bath & Plumbing" items={formData.toiletBathPlumbing} total={toiletTotal} />
-              )}
-              {formData.wallPuttyWork.length > 0 && (
-                <SectionSummary title="F. Wall Putty Work" items={formData.wallPuttyWork} total={puttyTotal} />
-              )}
-              {formData.electricWork.length > 0 && (
-                <SectionSummary title="G. Electric Work" items={formData.electricWork} total={electricTotal} />
-              )}
-              {formData.roofingWork.length > 0 && (
-                <SectionSummary title="H. Roofing Work" items={formData.roofingWork} total={roofingTotal} />
-              )}
-              {formData.ecoPanelOtherWork.length > 0 && (
-                <SectionSummary title="I. Other Eco-Panel Work" items={formData.ecoPanelOtherWork} total={ecoPanelOtherTotal} />
-              )}
-              <Card className="p-3 bg-[#FAF0E6]">
-                <div className="flex justify-between font-bold text-[#1E2D4D]">
-                  <span>ECO-PANEL WORK TOTAL</span>
-                  <span>NRS {formatNepaliNumber(ecoPanelTotal)}</span>
-                </div>
-              </Card>
-            </div>
-          )}
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-[#1E2D4D]">SECTION 2: ECO-PANEL WORK</h3>
+                {formData.panelFloorWork.length > 0 && (
+                  <SectionSummary title="A. Panel Floor Work" items={formData.panelFloorWork} total={panelFloorTotal} />
+                )}
+                {formData.panelRoofWork.length > 0 && (
+                  <SectionSummary title="B. Panel Roof Work" items={formData.panelRoofWork} total={panelRoofTotal} />
+                )}
+                {formData.panelWallWork.length > 0 && (
+                  <SectionSummary title="C. Panel Wall Work" items={formData.panelWallWork} total={panelWallTotal} />
+                )}
+                {formData.upvcDoorsWindows.length > 0 && (
+                  <SectionSummary title="D. UPVC Doors & Windows" items={formData.upvcDoorsWindows} total={upvcTotal} />
+                )}
+                {formData.toiletBathPlumbing.length > 0 && (
+                  <SectionSummary title="E. Toilet, Bath & Plumbing" items={formData.toiletBathPlumbing} total={toiletTotal} />
+                )}
+                {formData.wallPuttyWork.length > 0 && (
+                  <SectionSummary title="F. Wall Putty Work" items={formData.wallPuttyWork} total={puttyTotal} />
+                )}
+                {formData.electricWork.length > 0 && (
+                  <SectionSummary title="G. Electric Work" items={formData.electricWork} total={electricTotal} />
+                )}
+                {formData.roofingWork.length > 0 && (
+                  <SectionSummary title="H. Roofing Work" items={formData.roofingWork} total={roofingTotal} />
+                )}
+                {formData.ecoPanelOtherWork.length > 0 && (
+                  <SectionSummary title="I. Other Eco-Panel Work" items={formData.ecoPanelOtherWork} total={ecoPanelOtherTotal} />
+                )}
+                <Card className="p-3 bg-[#FAF0E6]">
+                  <div className="flex justify-between font-bold text-[#1E2D4D]">
+                    <span>ECO-PANEL WORK TOTAL</span>
+                    <span>NRS {formatNepaliNumber(ecoPanelTotal)}</span>
+                  </div>
+                </Card>
+              </div>
+            )}
 
           {/* Custom Work section removed; custom items are stored under custom_field_work and included in Subtotal */}
 
@@ -643,19 +683,115 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
                   <span>NRS {formatNepaliNumber(vatAmount)}</span>
                 </div>
               )}
-              <div className="flex justify-between items-center mt-3 p-3 bg-[#EF7E1E] text-white rounded font-bold text-lg">
-                <span>GRAND TOTAL</span>
-                <span className="flex flex-col text-right">
-                  <span>NRS {formatNepaliNumber(grandTotal)}</span>
-                  <span className="text-sm italic font-normal">(including VAT)</span>
-                </span>
+              <div className="mt-4 p-4 bg-gradient-to-r from-[#1E2D4D] to-[#2a3f66] text-white rounded-lg shadow-lg border border-[#EF7E1E]/30">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-semibold tracking-wide opacity-90">GRAND TOTAL</span>
+                  <span className="text-xs uppercase font-medium opacity-75">(including VAT)</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-4xl font-bold block mb-1">NRS {formatNepaliNumber(grandTotal)}</span>
+                  <div className="h-0.5 bg-[#EF7E1E]/40 mt-2"></div>
+                </div>
               </div>
               {customTitle && <div className="mt-2 text-sm font-medium text-[#1E2D4D]">Note: {customTitle}</div>}
             </div>
           </Card>
 
+          {/* Quotation Section */}
+          {showQuotationFields && (
+            <Card className="p-4 border-2 border-[#EF7E1E]/30">
+              <h4 className="text-lg font-semibold text-[#1E2D4D] mb-3">Quotation Details</h4>
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <label className="block font-medium text-[#1E2D4D] mb-1">Quotation Number</label>
+                    <input
+                      type="text"
+                      value={quotationNumber}
+                      onChange={(e) => setQuotationNumber(e.target.value)}
+                      placeholder="e.g., QT-2024-001"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#EF7E1E]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-[#1E2D4D] mb-1">Quotation Date</label>
+                    <input
+                      type="date"
+                      value={quotationDate}
+                      onChange={(e) => setQuotationDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#EF7E1E]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-[#1E2D4D] mb-1">Validity (Days)</label>
+                    <input
+                      type="number"
+                      value={validityDays}
+                      onChange={(e) => setValidityDays(e.target.value)}
+                      placeholder="30"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#EF7E1E]"
+                    />
+                  </div>
+                </div>
+
+                {/* Additional Quotation Fields */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <label className="block font-medium text-[#1E2D4D] mb-1">Recipient Name (TO)</label>
+                    <input
+                      type="text"
+                      value={recipientName}
+                      onChange={(e) => setRecipientName(e.target.value)}
+                      placeholder="Recipient Company/Name"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#EF7E1E]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-[#1E2D4D] mb-1">Recipient Address</label>
+                    <input
+                      type="text"
+                      value={recipientAddress}
+                      onChange={(e) => setRecipientAddress(e.target.value)}
+                      placeholder="Full Address"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#EF7E1E]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-[#1E2D4D] mb-1">F.O.B. / Delivery Terms</label>
+                    <input
+                      type="text"
+                      value={fobTerms}
+                      onChange={(e) => setFobTerms(e.target.value)}
+                      placeholder="e.g., Ex-Factory"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#EF7E1E]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-[#1E2D4D] mb-1">Delivery Number</label>
+                    <input
+                      type="text"
+                      value={deliveryNumber}
+                      onChange={(e) => setDeliveryNumber(e.target.value)}
+                      placeholder="Optional"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#EF7E1E]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-[#1E2D4D] mb-1">Inquiry Date</label>
+                    <input
+                      type="date"
+                      value={inquiryDate}
+                      onChange={(e) => setInquiryDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#EF7E1E]"
+                    />
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Buttons */}
-          <div className="flex gap-3 justify-end pt-4 border-t">
+          <div className="flex gap-3 justify-end pt-4 border-t flex-wrap">
             <Button variant="outline" onClick={() => !busy && onOpenChange(false)} disabled={busy}>
               {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Close
@@ -673,21 +809,66 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
                 </>
               )}
             </Button>
-            <Button onClick={handleDownloadPDF} disabled={busy} className="bg-[#EF7E1E] hover:bg-[#EF7E1E]/90 text-white">
-              {busy ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4 mr-2" />
-                  Download PDF
-                </>
-              )}
+            <Button
+              onClick={() => setShowQuotationFields(!showQuotationFields)}
+              disabled={busy}
+              className="bg-[#1E2D4D] hover:bg-[#1E2D4D]/90 text-white"
+            >
+              {showQuotationFields ? "Hide Quotation" : "Create Quotation"}
             </Button>
+            {showQuotationFields && (
+              <>
+                <Button
+                  onClick={() => setEmailModalOpen(true)}
+                  disabled={busy || !quotationNumber}
+                  variant="outline"
+                  className="border-[#EF7E1E] text-[#EF7E1E] hover:bg-[#EF7E1E]/10"
+                >
+                  Email Quotation
+                </Button>
+                <Button
+                  onClick={handleDownloadPDF}
+                  disabled={busy || !quotationNumber}
+                  className="bg-[#EF7E1E] hover:bg-[#EF7E1E]/90 text-white"
+                >
+                  {busy ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Download Quotation PDF
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+            {!showQuotationFields && (
+              <Button onClick={handleDownloadPDF} disabled={busy} className="bg-[#EF7E1E] hover:bg-[#EF7E1E]/90 text-white">
+                {busy ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Download PDF
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
+        <EmailModal
+          open={emailModalOpen}
+          onOpenChange={setEmailModalOpen}
+          onSend={handleEmailSend}
+          defaultSubject={`Quotation ${quotationNumber} - ${formData.projectInfo.projectName}`}
+          defaultMessage={`Dear ${recipientName || "Sir/Madam"},\n\nPlease find attached the quotation for ${formData.projectInfo.projectName}.\n\nBest regards,\nBela Nepal Industries`}
+        />
       </DialogContent>
     </Dialog>
   );

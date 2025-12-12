@@ -49,7 +49,7 @@ const Admin = () => {
   const checkAdminAccess = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         toast.error("Please login to access admin panel");
         navigate("/");
@@ -172,12 +172,21 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
             <img
               src="/belalogo.png"
               alt="Bela Nepal"
-              className="h-10 w-auto"
+              className="h-10 w-auto cursor-pointer"
+              onClick={async () => {
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  if (session) navigate('/dashboard');
+                  else navigate('/');
+                } catch (e) {
+                  navigate('/');
+                }
+              }}
             />
             <h1 className="text-3xl font-bold text-foreground">Admin Dashboard - BOQ Management</h1>
           </div>
@@ -200,6 +209,9 @@ const Admin = () => {
             </Button>
             <Button variant="outline" onClick={() => navigate("/users")}>
               Users Management
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/admin/customer-info")}>
+              Customer Info Requests
             </Button>
           </div>
         </Card>

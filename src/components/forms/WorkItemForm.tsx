@@ -84,6 +84,20 @@ const WorkItemForm = ({ data, onChange, title, category, projectId }: WorkItemFo
 
         console.debug("Fetched predefined_items:", (items || []).length, "products:", (products || []).length);
 
+        const inferUnit = (size: any) => {
+          if (!size) return "pcs";
+          const s = String(size).toLowerCase();
+          if (/sq\s?ft|sqft/.test(s)) return "sqft";
+          if (/sq\s?m|sqm|sq\.m/.test(s)) return "sqm";
+          if (/\bkg\b|kg/.test(s)) return "kg";
+          if (/\bton\b|t\b/.test(s)) return "t";
+          if (/\bmm\b/.test(s)) return "mm";
+          if (/\bcm\b/.test(s)) return "cm";
+          if (/\bft\b|feet/.test(s)) return "ft";
+          if (/\bm\b|\d+x?\d*m\b/.test(s) || /m$/.test(s)) return "m";
+          return "pcs";
+        };
+
         const mappedProducts: PredefinedItem[] = ["panel_floor_work", "panel_wall_work", "panel_roof_work"].includes(category)
           ? (products || []).map((p: any, idx: number) => ({
               id:
@@ -96,7 +110,7 @@ const WorkItemForm = ({ data, onChange, title, category, projectId }: WorkItemFo
                   : `prod:idx:${idx}`,
               item_name: p.product_name || "",
               specification: p.product_size || "",
-              unit: p.sqft ? "sqft" : (p.product_size || "pcs"),
+              unit: p.unit ?? (p.sqft ? "sqft" : inferUnit(p.product_size)),
               standard_rate: Number(p.price_with_vat ?? p.rate ?? 0),
             }))
           : [];
@@ -199,8 +213,9 @@ const WorkItemForm = ({ data, onChange, title, category, projectId }: WorkItemFo
         itemName: predefined.item_name,
         specification: predefined.specification || "",
         unit: predefined.unit,
+        quantity: d.quantity ?? 0,
         rate: predefined.standard_rate,
-        amount: (d.quantity || 0) * predefined.standard_rate,
+        amount: (d.quantity ?? 0) * predefined.standard_rate,
         source: isProduct ? "product" : "predefined",
       };
 
@@ -226,10 +241,26 @@ const WorkItemForm = ({ data, onChange, title, category, projectId }: WorkItemFo
         base.rate = Number(productDetails.price_with_vat ?? productDetails.rate ?? base.rate) ?? base.rate;
         base.price_with_vat = productDetails.price_with_vat ?? null;
         base.category = productDetails.category ?? null;
-        // set unit to sqft as requested
-        base.unit = productDetails.sqft ? "sqft" : base.unit;
-        // update amount after rate change
-        base.amount = Number(base.quantity ?? 0) * Number(base.rate ?? 0);
+        // prefer explicit unit field; otherwise prefer sqft or infer from product_size
+        let inferredUnit = base.unit || "pcs";
+        if (productDetails.unit) {
+          inferredUnit = productDetails.unit;
+        } else if (productDetails.sqft) {
+          inferredUnit = "sqft";
+        } else if (productDetails.product_size) {
+          const s = String(productDetails.product_size).toLowerCase();
+          if (/sq\s?ft|sqft/.test(s)) inferredUnit = "sqft";
+          else if (/sq\s?m|sqm|sq\.m/.test(s)) inferredUnit = "sqm";
+          else if (/\bkg\b|kg/.test(s)) inferredUnit = "kg";
+          else if (/\bmm\b/.test(s)) inferredUnit = "mm";
+          else if (/\bcm\b/.test(s)) inferredUnit = "cm";
+          else if (/\bft\b|feet/.test(s)) inferredUnit = "ft";
+          else if (/m\b|\d+x?\d*m\b/.test(s) || /m$/.test(s)) inferredUnit = "m";
+        }
+        base.unit = inferredUnit;
+        // ensure quantity is numeric and update amount after rate change
+        base.quantity = Number(base.quantity ?? 0);
+        base.amount = Number(base.quantity) * Number(base.rate ?? 0);
       }
 
       return base;
@@ -376,17 +407,22 @@ const WorkItemForm = ({ data, onChange, title, category, projectId }: WorkItemFo
                   />
                 </div>
                     <div className="md:col-span-2 space-y-1">
-                  <Label className="text-[11px]">Quantity</Label>
-                  <Input
-                    className="h-9"
-                    type="number"
-                    inputMode="decimal"
-                    enterKeyHint="next"
-                    placeholder="0"
-                        value={item.quantity ?? ""}
-                        onChange={(e) => updateItem(item.id, "quantity", parseFloat(e.target.value) || 0)}
-                  />
-                </div>
+                      <Label className="text-[11px]">Quantity</Label>
+                      <Input
+                        className="h-9"
+                        type="number"
+                        inputMode="decimal"
+                        enterKeyHint="next"
+                        placeholder="0"
+                        // render numeric values as strings so `0` is visible and not treated as empty
+                        value={item.quantity != null ? String(item.quantity) : "0"}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const n = v === "" ? 0 : Number(v);
+                          updateItem(item.id, "quantity", Number.isNaN(n) ? 0 : n);
+                        }}
+                      />
+                    </div>
                 <div className="md:col-span-2 space-y-1">
                   <Label className="text-[11px]">Rate</Label>
                   <Input
@@ -395,8 +431,12 @@ const WorkItemForm = ({ data, onChange, title, category, projectId }: WorkItemFo
                     inputMode="decimal"
                     enterKeyHint="next"
                     placeholder="0.00"
-                        value={item.rate ?? ""}
-                        onChange={(e) => updateItem(item.id, "rate", parseFloat(e.target.value) || 0)}
+                        value={item.rate != null ? String(item.rate) : "0"}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const n = v === "" ? 0 : Number(v);
+                          updateItem(item.id, "rate", Number.isNaN(n) ? 0 : n);
+                        }}
                   />
                 </div>
                 <div className="md:col-span-2 space-y-1">

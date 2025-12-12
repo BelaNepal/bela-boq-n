@@ -9,7 +9,7 @@ import { generateBOQPdfFromFormData } from "@/lib/boqPdf";
 import { formatNepaliCurrency } from "@/lib/formatters";
 import { numberToWords } from "@/lib/numberToWords";
 import { LoadingScreen } from "@/components/LoadingScreen";
-
+import { Loader2 } from "lucide-react";
 interface BOQProject {
   id: string;
   project_name: string;
@@ -75,6 +75,7 @@ const BOQView = () => {
     ecoPanelOtherWork: [],
     customFieldWork: [],
   });
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     const fetchBOQDataWithAccessControl = async () => {
@@ -221,6 +222,7 @@ const BOQView = () => {
   const handleDownloadPDF = async () => {
     if (!project) return;
     try {
+      setIsDownloading(true);
       const toFormItems = (arr: WorkItem[] = []) => arr.map((i) => ({
         itemName: i.item_name,
         specification: i.specification || "",
@@ -261,9 +263,11 @@ const BOQView = () => {
         customFieldWork: toFormItems(items.customFieldWork),
       };
       await generateBOQPdfFromFormData(formData);
+      toast.success("PDF downloaded successfully!");
     } catch (error) {
-      console.error("Error generating PDF:", error);
-      toast.error("Failed to generate PDF");
+      toast.error("Failed to download PDF");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -358,9 +362,25 @@ const BOQView = () => {
               )}
             </div>
           </div>
-          <Button variant="navy" onClick={handleDownloadPDF}>
-            <Download className="w-4 h-4 mr-2" />
-            Download PDF
+          <Button variant="navy" onClick={handleDownloadPDF} disabled={isDownloading} className="gap-2">
+            {isDownloading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Downloading...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                Download PDF
+              </>
+            )}
+          </Button>
+          <Button 
+            onClick={() => navigate(`/quotation/${id}`)}
+            className="gap-2 bg-[#EF7E1E] hover:bg-[#EF7E1E]/90 text-white"
+          >
+            <Download className="w-4 h-4" />
+            View Quotation
           </Button>
         </div>
 

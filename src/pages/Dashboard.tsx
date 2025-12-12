@@ -65,7 +65,16 @@ const Dashboard = () => {
             <img
               src="/belalogo.png"
               alt="Bela Logo"
-              className="h-10 w-auto"
+              className="h-10 w-auto cursor-pointer"
+              onClick={async () => {
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  if (session) navigate('/dashboard');
+                  else navigate('/');
+                } catch (e) {
+                  navigate('/');
+                }
+              }}
             />
             <div>
               <h1 className="text-xl font-bold text-foreground">Dashboard</h1>

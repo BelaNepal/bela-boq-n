@@ -19,6 +19,7 @@ interface Product {
   bela_prod_code?: string | null;
   product_name?: string | null;
   product_size?: string | null;
+  unit?: string | null;
   t_mtr?: number | null;
   w_mtr?: number | null;
   l_mtr?: number | null;
@@ -53,6 +54,7 @@ const AdminProducts = () => {
     "bela_prod_code",
     "product_name",
     "product_size",
+    "unit",
     "thickness",
     "price_with_vat",
     "category",
@@ -87,6 +89,7 @@ const AdminProducts = () => {
         bela_prod_code: "BP001",
         product_name: "Example Product",
         product_size: "1x2m",
+        unit: "m",
         thickness: 10,
         price_with_vat: 5000,
         category: "civil-metal-work",
@@ -155,6 +158,7 @@ const AdminProducts = () => {
             bela_prod_code: row.bela_prod_code || null,
             product_name: row.product_name || null,
             product_size: row.product_size || null,
+            unit: row.unit || null,
             thickness: row.thickness ? Number(row.thickness) : null,
             price_with_vat: row.price_with_vat ? Number(row.price_with_vat) : null,
             category: row.category || null,
@@ -448,7 +452,7 @@ const AdminProducts = () => {
                   <TableHead>Product Code</TableHead>
                   <TableHead>Bela Code</TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead>Size</TableHead>
+                  <TableHead>Unit</TableHead>
                   <TableHead>Thickness</TableHead>
                   <TableHead>Rate</TableHead>
                   <TableHead>Category</TableHead>
@@ -462,7 +466,7 @@ const AdminProducts = () => {
                     <TableCell>{p.product_code ?? "-"}</TableCell>
                     <TableCell>{p.bela_prod_code ?? "-"}</TableCell>
                     <TableCell className="font-medium">{p.product_name ?? "-"}</TableCell>
-                    <TableCell className="max-w-xs truncate">{p.product_size ?? "-"}</TableCell>
+                    <TableCell className="max-w-xs truncate">{p.unit ?? p.product_size ?? "-"}</TableCell>
                     <TableCell>{p.thickness ?? "-"}</TableCell>
                     <TableCell>{p.price_with_vat ?? "-"}</TableCell>
                     <TableCell>{p.category ?? "-"}</TableCell>
@@ -512,6 +516,10 @@ const AdminProducts = () => {
               <div className="space-y-2 md:col-span-2">
                 <Label>Product Size</Label>
                 <Input value={form.product_size ?? ""} onChange={(e) => setForm({ ...form, product_size: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Unit</Label>
+                <Input value={form.unit ?? ""} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="e.g. m, kg, pcs" />
               </div>
               <div className="space-y-2">
                 <Label>Thickness</Label>

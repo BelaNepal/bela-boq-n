@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -99,8 +99,44 @@ const BOQForm = () => {
   });
 
   const progress = ((currentStep + 1) / steps.length) * 100;
+  const [showStepsChart, setShowStepsChart] = useState(true);
+  const lastScroll = useRef<number>(0);
+  useEffect(() => {
+    // initialize lastScroll on mount
+    lastScroll.current = typeof window !== "undefined" ? window.scrollY : 0;
+    const threshold = 10;
+    const onScroll = () => {
+      const y = window.scrollY;
+      const delta = y - lastScroll.current;
+      // scroll down -> hide steps chart, scroll up -> show
+      if (delta > threshold && showStepsChart) {
+        setShowStepsChart(false);
+      } else if (delta < -threshold && !showStepsChart) {
+        setShowStepsChart(true);
+      }
+      // always show near top
+      if (y < 120 && !showStepsChart) setShowStepsChart(true);
+      lastScroll.current = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [showStepsChart]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Don't navigate when user is typing in inputs, textareas, selects or contenteditable
+      try {
+        const active = document.activeElement as HTMLElement | null;
+        if (active) {
+          const tag = (active.tagName || "").toLowerCase();
+          const isEditable = active.getAttribute && active.getAttribute("contenteditable") === "true";
+          if (tag === "input" || tag === "textarea" || tag === "select" || isEditable) {
+            return;
+          }
+        }
+      } catch (err) {
+        // ignore DOM access errors and fall back to default behavior
+      }
+
       if (e.key === "ArrowRight") {
         handleNext();
       } else if (e.key === "ArrowLeft") {
@@ -379,7 +415,7 @@ const BOQForm = () => {
           </div>
 
           <Card className="p-6 space-y-4">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center sticky top-16 z-40 bg-card/80 backdrop-blur-sm px-6 py-4 shadow-sm">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   {getSectionHeader() && (
@@ -397,7 +433,7 @@ const BOQForm = () => {
               </div>
             </div>
             <div className="pt-3">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3">
+                <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3 transition-all duration-300 min-h-[56px] ${showStepsChart ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`} aria-hidden={!showStepsChart}>
                 {steps.map((step, index) => (
                   <div key={step.id} className="flex items-center gap-3">
                     <Tooltip>
@@ -406,7 +442,7 @@ const BOQForm = () => {
                           type="button"
                           aria-current={index === currentStep ? "step" : undefined}
                           aria-label={`Go to ${step.title}`}
-                          onClick={() => goToStep(index)}
+                          onClick={() => { goToStep(index); setShowStepsChart(true); }}
                           className={cn(
                             "flex w-full items-center gap-2 rounded-full border px-3 py-1 text-[11px] md:text-xs transition",
                             index === currentStep && "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/30 ring-2 ring-primary/60",

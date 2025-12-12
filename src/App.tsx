@@ -10,6 +10,7 @@ import BOQCreate from "./pages/BOQCreate";
 import Admin from "./pages/Admin";
 import BOQEdit from "./pages/BOQEdit";
 import BOQView from "./pages/BOQView";
+import QuotationView from "./pages/QuotationView";
 import AdminItems from "./pages/AdminItems";
 import AdminProducts from "./pages/AdminProducts";
 import UserManagement from "./pages/UserManagement";
@@ -21,6 +22,8 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import CustomerInfo from "./pages/CustomerInfo";
+import AdminCustomerInfo from "./pages/AdminCustomerInfo";
 
 const queryClient = new QueryClient();
 
@@ -67,12 +70,15 @@ const App = () => {
             <Route path="/admin" element={<Admin />} />
             <Route path="/boq/view/:id" element={<BOQView />} />
             <Route path="/boq/edit/:id" element={<BOQEdit />} />
+            <Route path="/quotation/:id" element={<QuotationView />} />
             <Route path="/admin/items" element={<AdminItems />} />
             <Route path="/admin/products" element={<AdminProducts />} />
             <Route path="/users" element={<UserManagement />} />
             <Route path="/my-boqs" element={<MyBOQs />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin/tables" element={<AdminTables />} />
+            <Route path="/admin/customer-info" element={<AdminCustomerInfo />} />
+            <Route path="/customer-info" element={<CustomerInfo />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
