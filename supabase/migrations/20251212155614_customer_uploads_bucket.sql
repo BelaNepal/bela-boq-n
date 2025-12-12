@@ -1,6 +1,6 @@
--- Create the customer-uploads bucket
+-- Create the customer_info bucket
 insert into storage.buckets (id, name, public)
-values ('customer-uploads', 'customer-uploads', true)
+values ('customer_info', 'customer_info', true)
 on conflict (id) do nothing;
 
 -- Set up security policy for public upload access
@@ -9,5 +9,5 @@ on conflict (id) do nothing;
 
 create policy "Public Access"
   on storage.objects for all
-  using ( bucket_id = 'customer-uploads' )
-  with check ( bucket_id = 'customer-uploads' );
+  using ( bucket_id = 'customer_info' )
+  with check ( bucket_id = 'customer_info' );

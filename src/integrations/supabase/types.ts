@@ -137,11 +137,16 @@ export type Database = {
           updated_at: string
           user_id: string | null
           location: string | null
+          site_location: string | null
           built_up_area: string | null
           start_date: string | null
           completion_date: string | null
           fiscal_year: string | null
-
+          discount_percent: number | null
+          overhead_percent: number | null
+          vat_percent: number | null
+          transportation_cost: number | null
+          custom_title: string | null
         }
         Insert: {
           client_name?: string | null
@@ -151,10 +156,16 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           location?: string | null
+          site_location?: string | null
           built_up_area?: string | null
           start_date?: string | null
           completion_date?: string | null
           fiscal_year?: string | null
+          discount_percent?: number | null
+          overhead_percent?: number | null
+          vat_percent?: number | null
+          transportation_cost?: number | null
+          custom_title?: string | null
         }
         Update: {
           client_name?: string | null
@@ -164,10 +175,16 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           location?: string | null
+          site_location?: string | null
           built_up_area?: string | null
           start_date?: string | null
           completion_date?: string | null
           fiscal_year?: string | null
+          discount_percent?: number | null
+          overhead_percent?: number | null
+          vat_percent?: number | null
+          transportation_cost?: number | null
+          custom_title?: string | null
         }
         Relationships: []
       }
@@ -482,6 +499,62 @@ export type Database = {
           unit?: string
         }
         Relationships: []
+      }
+      quotations: {
+        Row: {
+          id: string
+          project_id: string
+          quotation_number: string
+          quotation_date: string
+          validity_days: number
+          recipient_name: string
+          recipient_address: string
+          fob_terms: string | null
+          delivery_number: string | null
+          inquiry_date: string | null
+          grand_total: number
+          user_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          quotation_number: string
+          quotation_date: string
+          validity_days: number
+          recipient_name: string
+          recipient_address: string
+          fob_terms?: string | null
+          delivery_number?: string | null
+          inquiry_date?: string | null
+          grand_total: number
+          user_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          quotation_number?: string
+          quotation_date?: string
+          validity_days?: number
+          recipient_name?: string
+          recipient_address?: string
+          fob_terms?: string | null
+          delivery_number?: string | null
+          inquiry_date?: string | null
+          grand_total?: number
+          user_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "boq_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       roofing_work: {
         Row: {

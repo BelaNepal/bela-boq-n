@@ -21,7 +21,7 @@ const Dashboard = () => {
   const checkAuth = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         navigate("/auth?mode=login");
         return;
@@ -203,6 +203,19 @@ const Dashboard = () => {
                   <h3 className="text-xl font-semibold mb-2">Manage Tables</h3>
                   <p className="text-muted-foreground">
                     View, edit, export, and import data from all database tables.
+                  </p>
+                </Card>
+
+                <Card
+                  className="p-6 hover:shadow-lg transition-all cursor-pointer border-2 hover:border-primary/50"
+                  onClick={() => navigate("/admin/quotations")}
+                >
+                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                    <FileText className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">View All Quotations</h3>
+                  <p className="text-muted-foreground">
+                    View and manage all quotations in the system.
                   </p>
                 </Card>
               </>

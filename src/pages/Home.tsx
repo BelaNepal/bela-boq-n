@@ -31,6 +31,9 @@ const Home = () => {
           </div>
           <div className="flex gap-3 items-center">
             <ThemeToggle />
+            <Button variant="default" className="bg-[#EF7E1E] hover:bg-[#d66c15] text-white" onClick={() => navigate("/customer-info")}>
+              Estimate Your Project
+            </Button>
             <Button variant="outline" onClick={() => navigate("/auth?mode=login")}>
               Login
             </Button>
@@ -57,11 +60,6 @@ const Home = () => {
             </Button>
             <Button size="lg" variant="outline" onClick={() => navigate("/auth?mode=login")}>
               Login to Dashboard
-            </Button>
-          </div>
-          <div className="mt-8">
-            <Button size="lg" className="bg-[#EF7E1E] hover:bg-[#d66c15] text-white" onClick={() => navigate("/customer-info")}>
-              Estimate Your Dream Project
             </Button>
           </div>
         </div>

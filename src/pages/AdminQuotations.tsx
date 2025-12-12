@@ -5,9 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Search, Calendar, ArrowLeft, Eye, FileText } from "lucide-react";
+import { Search, Calendar, ArrowLeft, Eye, FileText, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { EmailModal } from "@/components/EmailModal";
+import { generateQuotationPdfFromFormData } from "@/lib/quotationPdf";
+import { BOQFormData } from "@/components/BOQForm";
 
 interface Quotation {
     id: string;
@@ -16,6 +19,11 @@ interface Quotation {
     grand_total: number;
     validity_days: number;
     project_id: string;
+    recipient_name: string;
+    recipient_address: string;
+    fob_terms: string | null;
+    delivery_number: string | null;
+    inquiry_date: string | null;
     boq_projects: {
         project_name: string;
         client_name: string | null;
@@ -32,6 +40,8 @@ const AdminQuotations = () => {
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+    const [emailModalOpen, setEmailModalOpen] = useState(false);
+    const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
 
     useEffect(() => {
         fetchQuotations();
@@ -103,6 +113,174 @@ const AdminQuotations = () => {
         }
 
         setFilteredQuotations(filtered);
+    };
+
+    const handleEmailQuotation = async (quotation: Quotation) => {
+        setSelectedQuotation(quotation);
+        setEmailModalOpen(true);
+    };
+
+    const handleEmailSend = async (email: string, subject: string, message: string) => {
+        if (!selectedQuotation) return;
+
+        try {
+            // Fetch the full project data to generate PDF
+            const { data: projectData, error: projectError } = await supabase
+                .from("boq_projects")
+                .select("*")
+                .eq("id", selectedQuotation.project_id)
+                .single();
+
+            if (projectError) throw projectError;
+
+            // Fetch all work items for the project
+            const fetchWorkItems = async (tableName: string) => {
+                const { data } = await (supabase as any)
+                    .from(tableName)
+                    .select("*")
+                    .eq("project_id", selectedQuotation.project_id);
+                return data || [];
+            };
+
+            const [civilMetalWork, civilPCCWork, panelFloorWork, panelRoofWork, panelWallWork,
+                upvcDoorsWindows, toiletBathPlumbing, wallPuttyWork, electricWork, roofingWork] = await Promise.all([
+                    fetchWorkItems("civil_metal_work"),
+                    fetchWorkItems("civil_pcc_work"),
+                    fetchWorkItems("panel_floor_work"),
+                    fetchWorkItems("panel_roof_work"),
+                    fetchWorkItems("panel_wall_work"),
+                    fetchWorkItems("upvc_doors_windows"),
+                    fetchWorkItems("toilet_bath_plumbing"),
+                    fetchWorkItems("wall_putty_work"),
+                    fetchWorkItems("electric_work"),
+                    fetchWorkItems("roofing_work"),
+                ]);
+
+            // Build form data structure
+            const formData: BOQFormData = {
+                projectInfo: {
+                    projectName: projectData.project_name,
+                    clientName: projectData.client_name || "",
+                    siteLocation: projectData.site_location || "",
+                    builtUpArea: projectData.built_up_area || "",
+                    startDate: projectData.start_date || "",
+                    completionDate: projectData.completion_date || "",
+                    fiscalYear: projectData.fiscal_year || "",
+                },
+                civilMetalWork: civilMetalWork.map((item: any) => ({
+                    itemName: item.item_name,
+                    specification: item.specification,
+                    unit: item.unit,
+                    quantity: item.quantity,
+                    rate: item.rate,
+                    amount: item.amount,
+                    remarks: item.remarks,
+                })),
+                civilPCCWork: civilPCCWork.map((item: any) => ({
+                    itemName: item.item_name,
+                    specification: item.specification,
+                    unit: item.unit,
+                    quantity: item.quantity,
+                    rate: item.rate,
+                    amount: item.amount,
+                    remarks: item.remarks,
+                })),
+                civilOtherWork: [],
+                panelFloorWork: panelFloorWork.map((item: any) => ({
+                    itemName: item.item_name,
+                    specification: item.specification,
+                    unit: item.unit,
+                    quantity: item.quantity,
+                    rate: item.rate,
+                    amount: item.amount,
+                    remarks: item.remarks,
+                })),
+                panelRoofWork: panelRoofWork.map((item: any) => ({
+                    itemName: item.item_name,
+                    specification: item.specification,
+                    unit: item.unit,
+                    quantity: item.quantity,
+                    rate: item.rate,
+                    amount: item.amount,
+                    remarks: item.remarks,
+                })),
+                panelWallWork: panelWallWork.map((item: any) => ({
+                    itemName: item.item_name,
+                    specification: item.specification,
+                    unit: item.unit,
+                    quantity: item.quantity,
+                    rate: item.rate,
+                    amount: item.amount,
+                    remarks: item.remarks,
+                })),
+                upvcDoorsWindows: upvcDoorsWindows.map((item: any) => ({
+                    itemName: item.item_name,
+                    specification: item.specification,
+                    unit: item.unit,
+                    quantity: item.quantity,
+                    rate: item.rate,
+                    amount: item.amount,
+                    remarks: item.remarks,
+                })),
+                toiletBathPlumbing: toiletBathPlumbing.map((item: any) => ({
+                    itemName: item.item_name,
+                    specification: item.specification,
+                    unit: item.unit,
+                    quantity: item.quantity,
+                    rate: item.rate,
+                    amount: item.amount,
+                    remarks: item.remarks,
+                })),
+                wallPuttyWork: wallPuttyWork.map((item: any) => ({
+                    itemName: item.item_name,
+                    specification: item.specification,
+                    unit: item.unit,
+                    quantity: item.quantity,
+                    rate: item.rate,
+                    amount: item.amount,
+                    remarks: item.remarks,
+                })),
+                electricWork: electricWork.map((item: any) => ({
+                    itemName: item.item_name,
+                    specification: item.specification,
+                    unit: item.unit,
+                    quantity: item.quantity,
+                    rate: item.rate,
+                    amount: item.amount,
+                    remarks: item.remarks,
+                })),
+                roofingWork: roofingWork.map((item: any) => ({
+                    itemName: item.item_name,
+                    specification: item.specification,
+                    unit: item.unit,
+                    quantity: item.quantity,
+                    rate: item.rate,
+                    amount: item.amount,
+                    remarks: item.remarks,
+                })),
+                ecoPanelOtherWork: [],
+            };
+
+            // Generate PDF
+            await generateQuotationPdfFromFormData(formData, {
+                quotationNumber: selectedQuotation.quotation_number,
+                quotationDate: selectedQuotation.quotation_date,
+                validityDays: selectedQuotation.validity_days,
+                recipientName: selectedQuotation.recipient_name,
+                recipientAddress: selectedQuotation.recipient_address,
+                fobTerms: selectedQuotation.fob_terms || "",
+                deliveryNumber: selectedQuotation.delivery_number || "",
+                inquiryDate: selectedQuotation.inquiry_date || "",
+            });
+
+            // Simulate email sending
+            console.log("Sending email to:", email, "Subject:", subject, "Message:", message);
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            toast.success("Email sent to " + email);
+        } catch (error) {
+            console.error("Error sending email:", error);
+            throw error;
+        }
     };
 
     const totalPages = Math.ceil(filteredQuotations.length / itemsPerPage);
@@ -186,15 +364,27 @@ const AdminQuotations = () => {
                                                 {new Intl.NumberFormat('en-NP', { style: 'currency', currency: 'NPR' }).format(q.grand_total)}
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => navigate(`/quotation/${q.project_id}`)}
-                                                    title="View Quotation"
-                                                >
-                                                    <Eye className="w-4 h-4 mr-2" />
-                                                    View
-                                                </Button>
+                                                <div className="flex gap-2 justify-end">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => navigate(`/quotation/${q.project_id}`)}
+                                                        title="View Quotation"
+                                                    >
+                                                        <Eye className="w-4 h-4 mr-2" />
+                                                        View
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => handleEmailQuotation(q)}
+                                                        title="Email Quotation"
+                                                        className="text-[#EF7E1E] border-[#EF7E1E] hover:bg-[#EF7E1E]/10"
+                                                    >
+                                                        <Mail className="w-4 h-4 mr-2" />
+                                                        Email
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -228,6 +418,13 @@ const AdminQuotations = () => {
                     )}
                 </Card>
             </div>
+            <EmailModal
+                open={emailModalOpen}
+                onOpenChange={setEmailModalOpen}
+                onSend={handleEmailSend}
+                defaultSubject={selectedQuotation ? `Quotation ${selectedQuotation.quotation_number} - ${selectedQuotation.boq_projects?.project_name}` : ""}
+                defaultMessage={selectedQuotation ? `Dear ${selectedQuotation.recipient_name || "Sir/Madam"},\n\nPlease find attached the quotation ${selectedQuotation.quotation_number} for ${selectedQuotation.boq_projects?.project_name}.\n\nBest regards,\nBela Nepal Industries` : ""}
+            />
         </div>
     );
 };

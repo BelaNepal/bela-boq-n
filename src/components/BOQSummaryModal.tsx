@@ -23,7 +23,6 @@ interface BOQSummaryModalProps {
 const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BOQSummaryModalProps) => {
   const [busy, setBusy] = useState(false);
   const [showQuotationFields, setShowQuotationFields] = useState(false);
-  const [quotationNumber, setQuotationNumber] = useState("");
   const [quotationDate, setQuotationDate] = useState(new Date().toISOString().split("T")[0]);
   const [validityDays, setValidityDays] = useState("30");
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -32,6 +31,17 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
   const [fobTerms, setFobTerms] = useState("");
   const [deliveryNumber, setDeliveryNumber] = useState("");
   const [inquiryDate, setInquiryDate] = useState("");
+  const [savedQuotationNumber, setSavedQuotationNumber] = useState("");
+
+  // Auto-generate quotation number
+  const generateQuotationNumber = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const timestamp = Date.now().toString().slice(-6);
+    return `QT-${year}${month}${day}-${timestamp}`;
+  };
 
   const calculateSectionTotal = (items: WorkItem[]) => {
     return items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
@@ -451,8 +461,8 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
     try {
       setBusy(true);
       if (showQuotationFields) {
+        const quotationNumber = generateQuotationNumber();
         toast.info("Generating Quotation PDF...");
-        // Call new Quotation PDF generator
         await generateQuotationPdfFromFormData(formData, {
           quotationNumber,
           quotationDate,
@@ -477,16 +487,84 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
     }
   };
 
+  const handleSaveQuotation = async () => {
+    try {
+      setBusy(true);
+      const quotationNumber = generateQuotationNumber();
+
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("You must be logged in to save quotation");
+        return;
+      }
+
+      // First save the BOQ if not already saved
+      if (!existingProjectId) {
+        toast.error("Please save the BOQ first before creating a quotation");
+        return;
+      }
+
+      // Save quotation to database
+      const { error } = await supabase.from("quotations").insert({
+        project_id: existingProjectId,
+        quotation_number: quotationNumber,
+        quotation_date: quotationDate,
+        validity_days: Number(validityDays),
+        recipient_name: recipientName,
+        recipient_address: recipientAddress,
+        fob_terms: fobTerms,
+        delivery_number: deliveryNumber,
+        inquiry_date: inquiryDate || null,
+        grand_total: grandTotal,
+        user_id: user.id,
+      });
+
+      if (error) throw error;
+
+      toast.success(`Quotation ${quotationNumber} saved successfully!`);
+      setSavedQuotationNumber(quotationNumber);
+      setShowQuotationFields(false);
+
+      // Auto-open email modal after successful save
+      setTimeout(() => {
+        setEmailModalOpen(true);
+      }, 500);
+    } catch (error) {
+      console.error("Error saving quotation:", error);
+      toast.error("Failed to save quotation");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleEmailSend = async (email: string, subject: string, message: string) => {
-    // Mock email sending logic
-    // In a real app, you would send the PDF blob to a backend API here
-    console.log("Sending email to:", email, "Subject:", subject, "Message:", message);
+    try {
+      // Generate PDF with the saved quotation data
+      const quotationNumber = savedQuotationNumber || generateQuotationNumber();
+      await generateQuotationPdfFromFormData(formData, {
+        quotationNumber,
+        quotationDate,
+        validityDays: Number(validityDays),
+        recipientName,
+        recipientAddress,
+        fobTerms,
+        deliveryNumber,
+        inquiryDate
+      });
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
+      // In a real app, you would send the PDF blob to a backend API here
+      console.log("Sending email to:", email, "Subject:", subject, "Message:", message);
 
-    // Just toast success for now as per plan
-    toast.success("Email sent to " + email);
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Just toast success for now as per plan
+      toast.success("Email sent to " + email);
+    } catch (error) {
+      console.error("Error generating PDF for email:", error);
+      throw error;
+    }
   };
 
   const SectionSummary = ({ title, items, total }: { title: string; items: WorkItem[]; total: number; serialStart?: number }) => {
@@ -702,17 +780,7 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
             <Card className="p-4 border-2 border-[#EF7E1E]/30">
               <h4 className="text-lg font-semibold text-[#1E2D4D] mb-3">Quotation Details</h4>
               <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <label className="block font-medium text-[#1E2D4D] mb-1">Quotation Number</label>
-                    <input
-                      type="text"
-                      value={quotationNumber}
-                      onChange={(e) => setQuotationNumber(e.target.value)}
-                      placeholder="e.g., QT-2024-001"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#EF7E1E]"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <label className="block font-medium text-[#1E2D4D] mb-1">Quotation Date</label>
                     <input
@@ -819,8 +887,25 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
             {showQuotationFields && (
               <>
                 <Button
+                  onClick={handleSaveQuotation}
+                  disabled={busy}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {busy ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save Quotation
+                    </>
+                  )}
+                </Button>
+                <Button
                   onClick={() => setEmailModalOpen(true)}
-                  disabled={busy || !quotationNumber}
+                  disabled={busy}
                   variant="outline"
                   className="border-[#EF7E1E] text-[#EF7E1E] hover:bg-[#EF7E1E]/10"
                 >
@@ -828,7 +913,7 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
                 </Button>
                 <Button
                   onClick={handleDownloadPDF}
-                  disabled={busy || !quotationNumber}
+                  disabled={busy}
                   className="bg-[#EF7E1E] hover:bg-[#EF7E1E]/90 text-white"
                 >
                   {busy ? (
@@ -866,7 +951,7 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
           open={emailModalOpen}
           onOpenChange={setEmailModalOpen}
           onSend={handleEmailSend}
-          defaultSubject={`Quotation ${quotationNumber} - ${formData.projectInfo.projectName}`}
+          defaultSubject={`Quotation - ${formData.projectInfo.projectName}`}
           defaultMessage={`Dear ${recipientName || "Sir/Madam"},\n\nPlease find attached the quotation for ${formData.projectInfo.projectName}.\n\nBest regards,\nBela Nepal Industries`}
         />
       </DialogContent>

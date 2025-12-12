@@ -18,6 +18,9 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 
+// Admin email - configure this in your environment or directly here
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || "belanepal.info@gmail.com";
+
 // --- Translations ---
 const translations: Record<Lang, any> = {
     en: {
@@ -265,7 +268,7 @@ export default function CustomerInfo() {
                 const filePath = `${fileName}`;
 
                 const { error: uploadError } = await supabase.storage
-                    .from('customer-uploads')
+                    .from('customer_info')
                     .upload(filePath, file);
 
                 if (uploadError) {
@@ -273,7 +276,7 @@ export default function CustomerInfo() {
                 }
 
                 const { data: { publicUrl } } = supabase.storage
-                    .from('customer-uploads')
+                    .from('customer_info')
                     .getPublicUrl(filePath);
 
                 newUrls.push(publicUrl);
@@ -338,25 +341,33 @@ export default function CustomerInfo() {
         <p><strong>Bela Nepal Team</strong></p>
       `;
 
-            // 3. Send Email to Admin
-            await supabase.functions.invoke('send-email', {
-                body: {
-                    to: values.email,
-                    subject: `New Inquiry: ${values.full_name}`,
-                    html: adminEmailHtml
-                    // attachments can also be sent if needed, but linking to admin panel is better for large files
-                }
-            });
+            // 3. Send Email to Admin (non-blocking)
+            try {
+                await supabase.functions.invoke('send-email', {
+                    body: {
+                        to: ADMIN_EMAIL,
+                        subject: `New Inquiry: ${values.full_name}`,
+                        html: adminEmailHtml
+                    }
+                });
+            } catch (emailError) {
+                console.error('Failed to send admin notification:', emailError);
+                // Don't block form submission if email fails
+            }
 
-            // 4. Send "Thank You" to Customer
-            await supabase.functions.invoke('send-email', {
-                body: {
-                    to: values.email,
-                    subject: "Thank you for contacting Bela Nepal",
-                    html: customerEmailHtml
-                }
-            });
-
+            // 4. Send "Thank You" to Customer (non-blocking)
+            try {
+                await supabase.functions.invoke('send-email', {
+                    body: {
+                        to: values.email,
+                        subject: "Thank you for contacting Bela Nepal",
+                        html: customerEmailHtml
+                    }
+                });
+            } catch (emailError) {
+                console.error('Failed to send customer confirmation:', emailError);
+                // Don't block form submission if email fails
+            }
 
             toast.success("Form submitted successfully!");
             form.reset();
