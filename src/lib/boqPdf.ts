@@ -386,7 +386,7 @@ export async function generateBOQPdfFromFormData(formData: BOQFormData) {
         yPosition += 8; // Increased spacing after table subtotal before next content
       }
       checkNewPage(10);
-      yPosition += 8; // increased gap before section total
+      yPosition += 3; // reduced gap before section total
       doc.setFillColor(240, 240, 240); // Light Gray
       doc.rect(15, yPosition - 4, pageWidth - 30, 8, "F");
       doc.setTextColor(30, 45, 77);
@@ -1235,7 +1235,7 @@ export async function generateQuotationPdf(formData: BOQFormData, quotationDetai
     doc.setFont("helvetica", "normal");
     doc.setFontSize(6.5);
     doc.setTextColor(80, 80, 80);
-    doc.text("• All prices are subject to change without notice.", marginLeft + 5, yPosition + 5);
+    doc.text("• Prices may be revised if market conditions change.", marginLeft + 5, yPosition + 5);
     doc.text("• Validity: 30 days from date of quotation.", marginLeft + 5, yPosition + 9);
     doc.text("• Payment terms as per agreement.", marginLeft + 5, yPosition + 13);
     doc.text("• For any queries, please contact: 01-5922974 | 057-591888", marginLeft + 5, yPosition + 17);

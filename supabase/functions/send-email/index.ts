@@ -1,55 +1,37 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import nodemailer from "npm:nodemailer@6.9.1";
+/// <reference types="https://deno.land/x/deno@v1.37.0/cli/tsc/dts/lib.deno.d.ts" />
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { Resend } from "npm:resend";
 
 const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 serve(async (req) => {
-    // Handle CORS preflight requests
-    if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders })
+    if (req.method === "OPTIONS") {
+        return new Response("ok", { headers: corsHeaders });
     }
 
     try {
-        const { to, subject, html, text, attachments } = await req.json()
+        const { to, subject, html } = await req.json();
 
-        const mailUser = Deno.env.get("SUPABASE_MAIL_USER");
-        const mailPass = Deno.env.get("SUPABASE_MAIL_PASS");
-
-        if (!mailUser || !mailPass) {
-            throw new Error("Missing email credentials in Supabase Secrets (SUPABASE_MAIL_USER, SUPABASE_MAIL_PASS)");
-        }
-
-        const transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: mailUser,
-                pass: mailPass
-            }
-        });
-
-        const mailOptions = {
-            from: mailUser,
+        const result = await resend.emails.send({
+            from: "onboarding@resend.dev",
             to,
             subject,
-            html: html || text,
-            attachments
-        };
+            html,
+        });
 
-        const info = await transporter.sendMail(mailOptions);
-        console.log("Email sent:", info.messageId);
-
-        return new Response(JSON.stringify(info), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        return new Response(JSON.stringify(result), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 200,
-        })
+        });
     } catch (error) {
-        console.error("Function error:", error);
         return new Response(JSON.stringify({ error: error.message }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 500,
-        })
+        });
     }
-})
+});

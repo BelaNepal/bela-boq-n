@@ -448,7 +448,7 @@ const BOQSummaryModal = ({ open, onOpenChange, formData, existingProjectId }: BO
       await Promise.all(insertPromises);
 
       toast.success("BOQ saved successfully!");
-      onOpenChange(false);
+      // Modal stays open - user can close manually
     } catch (error) {
       console.error("Error saving BOQ:", error);
       toast.error("Failed to save BOQ");

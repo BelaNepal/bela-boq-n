@@ -82,11 +82,13 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
         doc.line(marginLeft, 30, pageWidth - marginRight, 30);
 
         yPosition = 35;
+        // Add more space before QUOTATION title
+        yPosition += 5;
         doc.setFontSize(16);
         doc.setTextColor(239, 126, 30);
         doc.setFont("helvetica", "bold");
         doc.text("QUOTATION", pageWidth - marginRight, yPosition, { align: "right" });
-        yPosition += 10;
+        yPosition += 5; // Reduced spacing to info boxes
 
         // --- 2. QUOTE TOP SECTION (TO / INFO) ---
         const boxHeight = 25;
@@ -158,27 +160,30 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
         const colWidths = [10, 80, 15, 20, 25, 30];
         const tableStartX = marginLeft;
 
-        // Draw Header
-        doc.setFillColor(30, 45, 77); // Dark Blue Header
-        doc.rect(tableStartX, yPosition, pageWidth - marginLeft - marginRight, 8, "F");
-        doc.setTextColor(255, 255, 255);
+        // Light Gray Header Background
+        doc.setFillColor(180, 180, 180);
+        doc.rect(tableStartX, yPosition, pageWidth - marginLeft - marginRight, 7, "F");
+
+        // Black Text
+        doc.setTextColor(0, 0, 0);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
+        doc.setFontSize(8);
+
 
         let headerX = tableStartX;
-        doc.text("Item", headerX + 2, yPosition + 5.5);
+        doc.text("Item", headerX + 2, yPosition + 5);
         headerX += colWidths[0];
-        doc.text("Description", headerX + 2, yPosition + 5.5);
+        doc.text("Description", headerX + 2, yPosition + 5);
         headerX += colWidths[1];
-        doc.text("Unit", headerX + 2, yPosition + 5.5);
+        doc.text("Unit", headerX + 2, yPosition + 5);
         headerX += colWidths[2];
-        doc.text("Quantity", headerX + 18, yPosition + 5.5, { align: "right" });
+        doc.text("Quantity", headerX + 18, yPosition + 5, { align: "right" });
         headerX += colWidths[3];
-        doc.text("Rate", headerX + 23, yPosition + 5.5, { align: "right" });
+        doc.text("Rate", headerX + 23, yPosition + 5, { align: "right" });
         headerX += colWidths[4];
-        doc.text("Amount", headerX + 28, yPosition + 5.5, { align: "right" });
+        doc.text("Amount", headerX + 28, yPosition + 5, { align: "right" });
 
-        yPosition += 8;
+        yPosition += 7;
 
         // --- PREPARE DATA ---
         // We will flatten all sections into a single list
@@ -202,7 +207,7 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
 
         const drawRow = (cols: string[], isBold = false, isSectionHeader = false, isSubtotal = false) => {
             checkNewPage(10);
-            const rowHeight = isSectionHeader ? 6 : (isSubtotal ? 6 : 5); // Reduced base height
+            const rowHeight = isSectionHeader ? 5 : (isSubtotal ? 5 : 4); // Further reduced height
 
             if (isSectionHeader) {
                 doc.setFillColor(240, 240, 240);
@@ -553,6 +558,77 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
         doc.line(pageWidth - 80, sigY + 8, pageWidth - marginRight, sigY + 8);
         doc.text("Authorized Signature", pageWidth - 40, sigY + 13, { align: "center" });
 
+        // --- ADD WATERMARK ---
+        const createFadedLogoDataUrl = async (
+            dataUrl: string,
+            alpha = 0.03,
+            scale = 1
+        ): Promise<string> => {
+            try {
+                const img = new Image();
+                img.src = dataUrl;
+
+                await new Promise((res, rej) => {
+                    img.onload = res as any;
+                    img.onerror = rej;
+                });
+
+                const cw = img.width * scale;
+                const ch = img.height * scale;
+
+                const canvas = document.createElement("canvas");
+                canvas.width = cw;
+                canvas.height = ch;
+
+                const ctx = canvas.getContext("2d");
+                if (!ctx) return dataUrl;
+
+                ctx.clearRect(0, 0, cw, ch);
+                ctx.globalAlpha = alpha;
+
+                ctx.drawImage(img, 0, 0, cw, ch);
+
+                return canvas.toDataURL("image/png");
+            } catch {
+                return dataUrl;
+            }
+        };
+
+        if (logoData) {
+            try {
+                const faded = await createFadedLogoDataUrl(logoData, 0.03);
+                const wmW = 70;
+                const wmH = 60;
+                const pageCount = doc.getNumberOfPages();
+                for (let p = 1; p <= pageCount; p++) {
+                    doc.setPage(p);
+                    try {
+                        doc.addImage(faded, "PNG", pageWidth / 2 - wmW / 2, pageHeight / 2 - wmH / 2, wmW, wmH);
+                    } catch {
+                        doc.setFontSize(50);
+                        doc.setTextColor(200, 200, 200);
+                        doc.text("BELA NEPAL", pageWidth / 2, pageHeight / 2, { align: "center", angle: 45 });
+                    }
+                }
+            } catch {
+                const pageCount = doc.getNumberOfPages();
+                for (let p = 1; p <= pageCount; p++) {
+                    doc.setPage(p);
+                    doc.setFontSize(50);
+                    doc.setTextColor(200, 200, 200);
+                    doc.text("BELA NEPAL", pageWidth / 2, pageHeight / 2, { align: "center", angle: 45 });
+                }
+            }
+        } else {
+            const pageCount = doc.getNumberOfPages();
+            for (let p = 1; p <= pageCount; p++) {
+                doc.setPage(p);
+                doc.setFontSize(50);
+                doc.setTextColor(200, 200, 200);
+                doc.text("BELA NEPAL", pageWidth / 2, pageHeight / 2, { align: "center", angle: 45 });
+            }
+        }
+
         // --- ADD FOOTER (Page X of Y) ---
         const totalPages = doc.getNumberOfPages();
         for (let i = 1; i <= totalPages; i++) {
@@ -562,9 +638,6 @@ export async function generateQuotationPdfFromFormData(formData: BOQFormData, qu
             const pageText = `Page ${i} of ${totalPages}`;
             doc.text(pageText, pageWidth - marginRight, pageHeight - 10, { align: "right" });
 
-            // Re-add footer line/info if missing (Quotation PDF didn't seem to have a dedicated addFooter function in previous read, 
-            // but if it did, we should call it or add standard footer here. 
-            // The previous code didn't show a loop for footer, so I'll add the standard one here to be safe/consistent).
             doc.setDrawColor(239, 126, 30);
             doc.setLineWidth(0.5);
             doc.line(marginLeft, pageHeight - 15, pageWidth - marginRight, pageHeight - 15);
