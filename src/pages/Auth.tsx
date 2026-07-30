@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { FileText, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
 const Auth = () => {
@@ -96,9 +96,11 @@ const Auth = () => {
               <ArrowLeft className="w-4 h-4" />
               Back
             </Button>
-            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-              <FileText className="w-6 h-6 text-primary-foreground" />
-            </div>
+            <img
+              src="/belalogo.png"
+              alt="Bela Nepal logo"
+              className="h-12 w-auto object-contain"
+            />
           </div>
 
           <div className="text-center">
